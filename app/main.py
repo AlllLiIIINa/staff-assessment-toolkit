@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
@@ -12,3 +13,6 @@ async def health_check():
         "result": "working"
     }
     return JSONResponse(content=response_content)
+
+if __name__ == "__main__":
+    os.system("uvicorn app.main:app --reload")
