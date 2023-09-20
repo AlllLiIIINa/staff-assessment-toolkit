@@ -1,6 +1,5 @@
 -r requirements.txt
-pytest-7.4.2
-httpx-0.25.0
-ruff-0.0.290
-pytest~=7.4.2
-mypy-1.5.1
+pytest==7.4.2
+httpx==0.25.0
+ruff==0.0.290
+mypy==1.5.1
