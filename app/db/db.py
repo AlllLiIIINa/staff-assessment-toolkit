@@ -1,37 +1,43 @@
-import asyncio
-import asyncio_redis
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+import aioredis
+import redis
 
 import sqlalchemy
 from databases import Database
-from sqlalchemy.orm import sessionmaker
+from fastapi import FastAPI
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy_utils import database_exists, create_database
 
 
 from app.core.config import settings
 
 
-@asyncio.coroutine
-def connect():
-    connection = yield from asyncio_redis.Connection.create(
-        host=settings.REDIS_HOST,
-        port=settings.REDIS_PORT
+@asynccontextmanager
+async def connect(_application: FastAPI) -> AsyncGenerator:
+
+    pool = aioredis.ConnectionPool.from_url(
+        str(settings.REDIS_URL), max_connections=10, decode_responses=True
     )
-    yield from connection.set('key', 'value')
-    connection.close()
+    redis.redis_client = aioredis.Redis(connection_pool=pool)
+
+    yield
+
+    await pool.disconnect()
 
 
-db = Database(settings.DB_URL)
+database = Database(settings.DB_URL)
+
 metadata = sqlalchemy.MetaData()
-engine = sqlalchemy.create_engine(settings.DB_URL, pool_size=3, max_overflow=0)
-if not database_exists(engine.url):
-    create_database(engine.url)
 
-AsyncSessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine,
-    class_=AsyncSession
-)
+Base = declarative_base()
+
+engine = create_engine(settings.DB_URL, echo=True, future=True)
+
+metadata.create_all(engine)
+
+async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 metadata.create_all(engine)

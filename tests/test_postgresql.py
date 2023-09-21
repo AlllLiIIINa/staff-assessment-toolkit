@@ -7,7 +7,7 @@ from app.core.config import settings
 
 @pytest.fixture
 def postgres_session():
-    engine = create_engine(settings.DB_URL, pool_size=3, max_overflow=0)
+    engine = create_engine(settings.DB_TEST_URL, pool_size=3, max_overflow=0)
     if not database_exists(engine.url):
         create_database(engine.url)
     Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
