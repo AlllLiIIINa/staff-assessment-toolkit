@@ -1,6 +1,8 @@
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import Settings
 from app.routers import health
 
 
@@ -23,3 +25,12 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "app.main:app",
+        host=Settings.ALLOWED_HOST,
+        port=Settings.ALLOWED_PORT,
+        reload=True
+    )
