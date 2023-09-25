@@ -1,4 +1,3 @@
-import logging
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
