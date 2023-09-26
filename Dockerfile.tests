@@ -1,8 +1,15 @@
 FROM python:3.9
+
 WORKDIR /app
+
 COPY ./requirements_dev.txt .
 COPY ./requirements.txt .
+
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
 RUN pip install -r ./requirements_dev.txt
+
 COPY . .
-WORKDIR /app
+
 CMD ["pytest"]

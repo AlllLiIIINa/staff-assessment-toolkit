@@ -53,6 +53,7 @@ coverage.xml
 .pytest_cache/
 cover/
 *.ruff_cache
+*.mypy_cache
 
 # Translations
 *.mo
