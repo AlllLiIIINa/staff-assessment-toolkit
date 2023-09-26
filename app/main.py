@@ -3,11 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import Settings
+from app.db.db import Base, engine
 from app.routers import health
 
-
 app = FastAPI()
-
 
 origins = [
     "http://localhost",
@@ -25,6 +24,10 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+
+
+def create_tables():
+    Base.metadata.create_all(bind=engine)
 
 
 if __name__ == "__main__":
