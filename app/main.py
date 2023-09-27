@@ -33,11 +33,6 @@ app.add_middleware(
 
 app.include_router(health.router)
 
-
-def create_tables():
-    Base.metadata.create_all(bind=engine)
-
-
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
