@@ -1,6 +1,7 @@
 import datetime
 from typing import Optional
 from typing import List
+from fastapi import APIRouter
 from pydantic import Field
 from pydantic import EmailStr
 from pydantic import FilePath
@@ -26,29 +27,33 @@ class UserBase(schemas.BaseUser):
     class Config:
         orm_mode = True
 
+    api = APIRouter(
+        prefix="/users",
+    )
+
 
 class UserUpdate(UserBase):
     hashed_password: str = Field(None, title="Password", min_length=6)
 
 
-class SignIn(schemas.BaseUser):
+class SignIn(UserBase):
     email: EmailStr = Field(None, title="Email address")
     hashed_password: str = Field(None, title="Password", min_length=6)
 
 
-class SignUp(schemas.BaseUser):
+class SignUp(UserBase):
     user_firstname: str = Field(None, title="First name")
     user_lastname: str = Field(None, title="Last name")
     email: EmailStr = Field(None, title="Email address")
     hashed_password: str = Field(None, title="Password", min_length=6)
 
 
-class UsersList(schemas.BaseUser):
+class UsersList(UserBase):
     users: List[UserBase]
 
     class Config:
         title = "Users List"
 
 
-class UserDetail(schemas.BaseUser):
+class UserDetail(UserBase):
     pass

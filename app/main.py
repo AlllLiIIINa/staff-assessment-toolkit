@@ -5,16 +5,35 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import Settings
-from app.db.db import Base, engine
+from app.db.db import Base, engine, db
 from app.routers import health
 
 logging.basicConfig(
     filename='app.log',
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+
+def init_app():
+    db.init()
+    app = FastAPI(
+        title="App",
+        version="1",
     )
 
-app = FastAPI()
+    @app.on_event("startup")
+    async def startup():
+        await db.create_all()
+
+    @app.on_event("shutdown")
+    async def shutdown():
+        await db.close()
+
+    return app
+
+
+app = init_app()
 
 origins = [
     "http://localhost",
