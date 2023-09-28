@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Depends
@@ -25,11 +27,13 @@ async def check_postgresql(session: AsyncSession = Depends(get_db)):
         result = await session.execute(text("SELECT 1"))
 
         if result.scalar() == 1:
+            logging.info("Postgresql check processed successfully")
             return JSONResponse(content={"status_code": 200, "detail": "PostgreSQL is healthy", "result": "working"})
         else:
             raise HTTPException(status_code=500, detail="PostgreSQL connection is not healthy")
 
     except Exception as e:
+        logging.error(f"Error checking PostgreSQL connection: {e}")
         raise HTTPException(status_code=500, detail=f"Error checking PostgreSQL connection: {e}")
 
 
@@ -40,9 +44,11 @@ async def check_redis(redis=Depends(get_redis)):
         result = await redis.execute_command("GET", "test_key")
 
         if result == b'test_value':
+            logging.info("Redis check processed successfully")
             return JSONResponse(content={"status_code": 200, "detail": "Redis is healthy", "result": "working"})
         else:
             raise HTTPException(status_code=500, detail="Redis connection is not healthy")
 
     except Exception as e:
+        logging.error(f"Error checking Redis connection: {e}")
         raise HTTPException(status_code=500, detail=f"Error checking Redis connection: {e}")

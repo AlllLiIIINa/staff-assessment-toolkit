@@ -35,3 +35,11 @@ docker run -p 8000:8000 internship-meduzzen-app
 docker build -t internship-meduzzen-tests -f Dockerfile.tests .
 2. Run the tests using the Docker container:
 docker run internship-meduzzen-tests
+
+---
+<h1> How to make and apply migrations </h1>
+
+1. Create a migration:
+alembic revision --autogenerate -m "YOURMIGRATIONNAME"
+2. Apply the migration:
+alembic upgrade head
