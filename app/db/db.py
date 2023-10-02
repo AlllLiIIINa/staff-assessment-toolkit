@@ -1,7 +1,7 @@
 from redis import asyncio
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import declarative_base
 from app.core.config import Settings
 
@@ -24,4 +24,4 @@ async def create_all():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-db = get_db()
+session = get_db()

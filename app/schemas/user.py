@@ -1,15 +1,10 @@
 import datetime
 from typing import Optional
 from typing import List
-from fastapi import APIRouter
-from pydantic import Field
-from pydantic import EmailStr
-from pydantic import FilePath
-from pydantic import HttpUrl
-from fastapi_users import schemas
+from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl
 
 
-class UserBase(schemas.BaseUser):
+class UserBase(BaseModel):
     user_id: int
     user_email: EmailStr = Field(None, title="Email address")
     user_firstname: str = Field(None, title="First name")
@@ -19,41 +14,22 @@ class UserBase(schemas.BaseUser):
     user_phone: str = Field(None, title="Phone")
     user_links: HttpUrl = Field(None, title="Link")
     user_avatar: FilePath = Field(None, title="Avatar")
-    hashed_password: str = Field(None, title="Password", min_length=6)
+    user_hashed_password: str = Field(None, title="Password", min_length=6)
     is_superuser: bool = Field(False, title="Superuser")
     created_at: Optional[datetime.date] = Field(None, title="Created")
     updated_at: Optional[datetime.date] = Field(None, title="Updated")
 
-    class Config:
-        orm_mode = True
 
-    api = APIRouter(
-        prefix="/users",
-    )
-
-
-class UserUpdate(UserBase):
+class UserUpdate(BaseModel):
     hashed_password: str = Field(None, title="Password", min_length=6)
 
 
-class SignIn(UserBase):
-    email: EmailStr = Field(None, title="Email address")
-    hashed_password: str = Field(None, title="Password", min_length=6)
-
-
-class SignUp(UserBase):
-    user_firstname: str = Field(None, title="First name")
-    user_lastname: str = Field(None, title="Last name")
-    email: EmailStr = Field(None, title="Email address")
-    hashed_password: str = Field(None, title="Password", min_length=6)
-
-
-class UsersList(UserBase):
-    users: List[UserBase]
+class UsersList(BaseModel):
+    users: List[BaseModel]
 
     class Config:
         title = "Users List"
 
 
-class UserDetail(UserBase):
+class UserDetail(BaseModel):
     pass

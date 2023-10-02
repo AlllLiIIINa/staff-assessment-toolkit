@@ -1,5 +1,3 @@
-import sys
-
 from dotenv import load_dotenv
 import os
 
@@ -31,4 +29,3 @@ class Settings:
     REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
     ACCESS_TOKEN_EXPIRY_TIME = 60 * 30
     REFRESH_TOKEN_EXPIRY_TIME = 60 * 24 * 365
-

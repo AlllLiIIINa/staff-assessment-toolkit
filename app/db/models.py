@@ -1,40 +1,34 @@
+import uuid
 from datetime import datetime
-from sqlalchemy import Column
-from sqlalchemy import DateTime
-from sqlalchemy import Integer
-from sqlalchemy import String
-from sqlalchemy import Boolean
-from sqlalchemy.future import select
-from sqlalchemy import update as sqlalchemy_update
-from sqlalchemy import delete as sqlalchemy_delete
 
-from app.db.db import db
+from sqlalchemy import Column, DateTime, String, Boolean, select
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+
 from app.db.db import Base
-
-from uuid import uuid4
 
 
 class User(Base):
     __tablename__: str = "users"
+    __bind_key__ = "internship_db"
 
-    user_id = Column(Integer, primary_key=True, index=True)
-    user_email = Column(String, unique=True, index=True)
-    user_firstname = Column(String)
-    user_lastname = Column(String)
-    birthday = Column(DateTime)
+    user_id = Column(String, primary_key=True, index=True, default=uuid.uuid4())
+    user_email = Column(String, unique=True, index=True, nullable=False)
+    user_firstname = Column(String, nullable=False)
+    user_lastname = Column(String, nullable=False)
+    user_birthday = Column(DateTime)
     user_status = Column(Boolean, default=True)
     user_city = Column(String)
     user_phone = Column(String)
     user_links = Column(String)
     user_avatar = Column(String)
-    hashed_password = Column(String)
-    is_superuser = Column(Boolean, default=False)
-    created_at = Column(DateTime, index=True, default=datetime.utcnow)
-    updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_hashed_password = Column(String, nullable=False)
+    user_is_superuser = Column(Boolean, default=False, nullable=False)
+    user_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
+    user_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     def __repr__(self):
         return (
-            f"<{self.__class__.__name__}("
+            f"<{self.__class__.__name__}("/
             f"user_id={self.user_id}, "
             f"user_email={self.user_email}, "
             f"user_firstname={self.user_firstname}, "
@@ -42,54 +36,61 @@ class User(Base):
             f")>"
         )
 
-    @classmethod
-    async def create(cls, **kwargs):
-        user = cls(id=str(uuid4()), **kwargs)
-        db.add(user)
-        try:
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
+
+class CRUD:
+
+    async def get_all(async_session: async_sessionmaker[AsyncSession]):
+        async with async_session() as session:
+            statement = select(User).order_by(User.user_id)
+
+            result = await session.execute(statement)
+
+            return result.scalars()
+
+    async def sign_up(async_session: async_sessionmaker[AsyncSession], user: User):
+        async with async_session() as session:
+            session.add(user)
+            await session.commit()
+
         return user
 
-    @classmethod
-    async def get(cls, user_id):
-        query = select(cls).where(cls.user_id == user_id)
-        users = await db.execute(query)
-        (user,) = users.first()
-        return user
+    async def sign_in(async_session: async_sessionmaker[AsyncSession], user_id: str):
+        async with async_session() as session:
+            statement = select(User).filter(User.user_id == user_id)
 
-    @classmethod
-    async def get_all(cls):
-        query = select(cls)
-        users = await db.execute(query)
-        users = users.scalars().all()
-        return users
+            result = await session.execute(statement)
 
-    @classmethod
-    async def update(cls, user_id, **kwargs):
-        query = (
-            sqlalchemy_update(cls)
-            .where(cls.user_id == user_id)
-            .values(**kwargs)
-            .execution_options(synchronize_session="fetch")
-        )
-        await db.execute(query)
+            return result.scalars().one()
 
-        try:
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
+    async def update(async_session: async_sessionmaker[AsyncSession], user_id, data):
+        async with async_session() as session:
+            statement = select(User).filter(User.user_id == user_id)
+            result = await session.execute(statement)
+            user = result.scalars().one()
 
-    @classmethod
-    async def delete(cls, user_id):
-        query = sqlalchemy_delete(cls).where(cls.user_id == user_id)
-        await db.execute(query)
-        try:
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
-        return True
+            user.user_firstname = data['firstname']
+            user.user_lastname = data['lastname']
+
+            await session.commit()
+
+            return user
+
+    @staticmethod
+    async def delete(async_session: async_sessionmaker[AsyncSession], user: User):
+        async with async_session() as session:
+            await session.delete(user)
+            await session.commit()
+
+        return {}
+
+    # async def set_password_async(self, password):
+    #     salt = await asyncio.to_thread(bcrypt.gensalt)
+    #     hashed_password = await asyncio.to_thread(bcrypt.hashpw, password.encode('utf-8'), salt)
+    #     self.hashed_password = hashed_password
+    #
+    # async def check_password_async(self, password):
+    #     return await asyncio.to_thread(
+    #         bcrypt.checkpw,
+    #         password.encode('utf-8'),
+    #         self.password_hash.encode('utf-8')
+    #     )

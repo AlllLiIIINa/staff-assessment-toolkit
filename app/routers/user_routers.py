@@ -1,68 +1,101 @@
-import logging
-from typing import List
-from fastapi import HTTPException
-from health import router
-from app.db.models import User
-from app.schemas.user import UserBase
-from app.schemas.user import UsersList
-from app.schemas.user import UserUpdate
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, Integer, String, Boolean, select, cast
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+
+from app.db.db import Base
 
 
-@router.get("/user_get{user_id}", response_model=UserBase)
-async def user_get(user_id: str):
-    try:
-        user = await User.get(user_id)
-        logging.info("Getting user processed successfully")
+class User(Base):
+    __tablename__: str = "users"
+    __bind_key__ = "internship_db"
+
+    user_id = Column(Integer, primary_key=True, index=True, default=uuid.uuid4())
+    user_email = Column(String, unique=True, index=True, nullable=False)
+    user_firstname = Column(String, nullable=False)
+    user_lastname = Column(String, nullable=False)
+    user_birthday = Column(DateTime)
+    user_status = Column(Boolean, default=True)
+    user_city = Column(String)
+    user_phone = Column(String)
+    user_links = Column(String)
+    user_avatar = Column(String)
+    user_hashed_password = Column(String, nullable=False)
+    user_is_superuser = Column(Boolean, default=False, nullable=False)
+    user_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
+    user_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return (
+            f"<{self.__class__.__name__}("
+            f"user_id={self.user_id}, "
+            f"user_email={self.user_email}, "
+            f"user_firstname={self.user_firstname}, "
+            f"user_lastname={self.user_lastname}, "
+            f")>"
+        )
+
+
+class CRUD:
+    @staticmethod
+    async def get_all(async_session: async_sessionmaker[AsyncSession]):
+        async with async_session() as session:
+            statement = select(User).order_by(User.user_id)
+
+            result = await session.execute(statement)
+
+            return result.scalars()
+
+    @staticmethod
+    async def sign_up(async_session: async_sessionmaker[AsyncSession], user: User):
+        async with async_session() as session:
+            session.add(user)
+            await session.commit()
+
         return user
 
-    except Exception as e:
-        logging.error(f"Error retrieving user with ID {user_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error retrieving user with ID {user_id}: {e} ")
+    @staticmethod
+    async def sign_in(async_session: async_sessionmaker[AsyncSession], user_id: str):
+        async with async_session() as session:
+            user_id_int = int(user_id)
+            statement = select(User).filter(User.user_id == cast(user_id_int, Integer))
 
+            result = await session.execute(statement)
 
-@router.put("/user_update{user_id}", response_model=UserUpdate)
-async def user_update(user_id: str, user: UserBase):
-    try:
-        user = await User.update(user_id, **user.dict())
-        logging.info("Updating user processed successfully")
-        return user
+            return result.scalars().one()
 
-    except Exception as e:
-        logging.error(f"Error updating user with ID {user_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error updating user with ID {user_id}: {e}")
+    @staticmethod
+    async def update(async_session: async_sessionmaker[AsyncSession], user_id, data):
+        async with async_session() as session:
+            user_id_int = int(user_id)
+            statement = select(User).filter(User.user_id == cast(user_id_int, Integer))
+            result = await session.execute(statement)
+            user = result.scalars().one()
 
+            user.user_firstname = data['firstname']
+            user.user_lastname = data['lastname']
 
-@router.put("/user_delete{user_id}", response_model=UserBase)
-async def user_delete(user_id: str):
-    try:
-        user = await User.delete(user_id)
-        logging.info("Deleting user processed successfully")
-        return user
+            await session.commit()
 
-    except Exception as e:
-        logging.error(f"Error deleting user with ID {user_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error deleting user with ID {user_id}: {e}")
+            return user
 
+    @staticmethod
+    async def delete(async_session: async_sessionmaker[AsyncSession], user: User):
+        async with async_session() as session:
+            await session.delete(user)
+            await session.commit()
 
-@router.post("/user_create", response_model=UserBase)
-async def user_signin(user: UserBase):
-    try:
-        user = await User.create(**user.dict())
-        logging.info("Creating user processed successfully")
-        return user
+        return {}
 
-    except Exception as e:
-        logging.error(f"Error creating user: {e}")
-        raise HTTPException(status_code=500, detail=f"Error creating user: {e}")
-
-
-@router.get("/user_list", response_model=List[UsersList])
-async def user_list():
-    try:
-        users = await User.get_all()
-        logging.info("Getting user list processed successfully")
-        return users
-
-    except Exception as e:
-        logging.error(f"Error retrieving user list: {e}")
-        raise HTTPException(status_code=500, detail=f"Error retrieving user list: {e}")
+    # async def set_password_async(self, password):
+    #     salt = await asyncio.to_thread(bcrypt.gensalt)
+    #     hashed_password = await asyncio.to_thread(bcrypt.hashpw, password.encode('utf-8'), salt)
+    #     self.hashed_password = hashed_password
+    #
+    # async def check_password_async(self, password):
+    #     return await asyncio.to_thread(
+    #         bcrypt.checkpw,
+    #         password.encode('utf-8'),
+    #         self.password_hash.encode('utf-8')
+    #     )
