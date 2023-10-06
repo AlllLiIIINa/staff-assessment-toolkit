@@ -1,101 +1,47 @@
-import uuid
-from datetime import datetime
-
-from sqlalchemy import Column, DateTime, Integer, String, Boolean, select, cast
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-
-from app.db.db import Base
-
-
-class User(Base):
-    __tablename__: str = "users"
-    __bind_key__ = "internship_db"
-
-    user_id = Column(Integer, primary_key=True, index=True, default=uuid.uuid4())
-    user_email = Column(String, unique=True, index=True, nullable=False)
-    user_firstname = Column(String, nullable=False)
-    user_lastname = Column(String, nullable=False)
-    user_birthday = Column(DateTime)
-    user_status = Column(Boolean, default=True)
-    user_city = Column(String)
-    user_phone = Column(String)
-    user_links = Column(String)
-    user_avatar = Column(String)
-    user_hashed_password = Column(String, nullable=False)
-    user_is_superuser = Column(Boolean, default=False, nullable=False)
-    user_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
-    user_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    def __repr__(self):
-        return (
-            f"<{self.__class__.__name__}("
-            f"user_id={self.user_id}, "
-            f"user_email={self.user_email}, "
-            f"user_firstname={self.user_firstname}, "
-            f"user_lastname={self.user_lastname}, "
-            f")>"
-        )
+import logging
+from http import HTTPStatus
+from fastapi import Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from .health import router
+from app.schemas.user import UserUpdate, UserBase
+from app.services.auth import SignUp, SignIn
+from app.services.users import UserService
+from ..db.db import get_db
 
 
-class CRUD:
-    @staticmethod
-    async def get_all(async_session: async_sessionmaker[AsyncSession]):
-        async with async_session() as session:
-            statement = select(User).order_by(User.user_id)
+@router.get("/users/")
+async def user_list(
+        page: int = Query(default=1, description="Page number", ge=1),
+        users_per_page: int = Query(default=10, description="Items per page", le=100),
+        session: AsyncSession = Depends(get_db)):
+    user_repo = UserService(session)
+    return await user_repo.get_all(page, users_per_page)
 
-            result = await session.execute(statement)
 
-            return result.scalars()
+@router.post("/user_create", status_code=HTTPStatus.CREATED, operation_id="user_signup")
+async def user_create(user_data: SignUp, session: AsyncSession = Depends(get_db)):
+    user_repo = UserService(session)
+    user = await user_repo.create(user_data)
+    return user
 
-    @staticmethod
-    async def sign_up(async_session: async_sessionmaker[AsyncSession], user: User):
-        async with async_session() as session:
-            session.add(user)
-            await session.commit()
 
-        return user
+@router.get("/user_get_by_id/{user_id}", response_model=SignIn, operation_id="user_signin")
+async def user_get_by_id(user_id: str, session: AsyncSession = Depends(get_db)):
+    user_repo = UserService(session)
+    user = await user_repo.get_by_id(user_id)
+    return user
 
-    @staticmethod
-    async def sign_in(async_session: async_sessionmaker[AsyncSession], user_id: str):
-        async with async_session() as session:
-            user_id_int = int(user_id)
-            statement = select(User).filter(User.user_id == cast(user_id_int, Integer))
 
-            result = await session.execute(statement)
+@router.put("/user_update/{user_id}", response_model=UserBase, operation_id="user_update")
+async def user_update(user_id: str, user_data: UserUpdate, session: AsyncSession = Depends(get_db)):
+    user_repo = UserService(session)
+    user = await user_repo.update(user_id, user_data)
+    logging.info("Getting user processed successfully")
+    return user
 
-            return result.scalars().one()
 
-    @staticmethod
-    async def update(async_session: async_sessionmaker[AsyncSession], user_id, data):
-        async with async_session() as session:
-            user_id_int = int(user_id)
-            statement = select(User).filter(User.user_id == cast(user_id_int, Integer))
-            result = await session.execute(statement)
-            user = result.scalars().one()
-
-            user.user_firstname = data['firstname']
-            user.user_lastname = data['lastname']
-
-            await session.commit()
-
-            return user
-
-    @staticmethod
-    async def delete(async_session: async_sessionmaker[AsyncSession], user: User):
-        async with async_session() as session:
-            await session.delete(user)
-            await session.commit()
-
-        return {}
-
-    # async def set_password_async(self, password):
-    #     salt = await asyncio.to_thread(bcrypt.gensalt)
-    #     hashed_password = await asyncio.to_thread(bcrypt.hashpw, password.encode('utf-8'), salt)
-    #     self.hashed_password = hashed_password
-    #
-    # async def check_password_async(self, password):
-    #     return await asyncio.to_thread(
-    #         bcrypt.checkpw,
-    #         password.encode('utf-8'),
-    #         self.password_hash.encode('utf-8')
-    #     )
+@router.put("/user_delete/{user_id}", status_code=HTTPStatus.NO_CONTENT, operation_id="user_delete")
+async def user_delete(user_id: str, session: AsyncSession = Depends(get_db)):
+    user_repo = UserService(session)
+    user = await user_repo.delete(user_id)
+    return user

@@ -3,7 +3,7 @@ fastapi==0.103.1
 uvicorn==0.23.2
 psycopg2-binary==2.9.7
 asyncpg==0.28.0
-sqlalchemy>=1.4.42
+sqlalchemy==1.4.42
 sqlalchemy-utils==0.41.1
 databases==0.8.0
 alembic==1.12.0

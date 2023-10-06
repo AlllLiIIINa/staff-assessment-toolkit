@@ -15,13 +15,5 @@ Base = declarative_base()
 
 
 async def get_db() -> AsyncSession:
-
     async with AsyncSession(engine) as session:
         return session
-
-
-async def create_all():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-session = get_db()
