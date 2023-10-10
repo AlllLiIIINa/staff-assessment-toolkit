@@ -1,6 +1,10 @@
+from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from pydantic import EmailStr, Field, ConfigDict, BaseModel
 from app.schemas.user import UserBase, router
+
+
+auth_router = APIRouter()
 
 
 class SignIn(BaseModel):
@@ -29,11 +33,11 @@ class SignUp(BaseModel):
     )
 
 
-@router.get("/user_signup/")
+@auth_router.get("/user_signup/")
 async def user_signup(user: SignUp) -> SignUp:
     return user
 
 
-@router.get("/user_signin/{user_id}/")
+@auth_router.get("/user_signin/{user_id}/")
 async def user_signup(user: UserBase) -> UserBase:
     return user
