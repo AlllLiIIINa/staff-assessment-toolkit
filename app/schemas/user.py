@@ -19,9 +19,9 @@ class UserBase(BaseModel):
     user_links: Optional[HttpUrl] = Field(None, title="Link")
     user_avatar: Optional[FilePath] = Field(None, title="Avatar")
     user_hashed_password: str = Field(None, title="Password", min_length=6)
-    is_superuser: bool = Field(False, title="Superuser")
-    created_at: Optional[datetime.datetime] = Field(None, title="Created")
-    updated_at: Optional[datetime.datetime] = Field(None, title="Updated")
+    user_is_superuser: bool = Field(False, title="Superuser")
+    user_created_at: Optional[datetime.datetime] = Field(None, title="Created")
+    user_updated_at: Optional[datetime.datetime] = Field(None, title="Updated")
 
     def __repr__(self):
         return (
@@ -32,6 +32,18 @@ class UserBase(BaseModel):
             f"user_lastname={self.user_lastname}, "
             f")>"
         )
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "user_email": "user@gmail.com",
+                "user_hashed_password": "PassWord123",
+                "user_firstname": "David",
+                "user_lastname": "White",
+            }
+        }
+    )
 
 
 class UserUpdate(BaseModel):

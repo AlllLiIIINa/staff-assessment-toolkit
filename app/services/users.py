@@ -1,13 +1,26 @@
 import logging
-
 import bcrypt
 from fastapi import HTTPException
+from passlib.context import CryptContext
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.db.models import User
 from app.schemas.user import UserBase, UserUpdate
-from app.services.auth import SignUp
+
+
+password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+class Hasher:
+    @staticmethod
+    async def verify_password(user_plain_password: str, user_hashed_password: str) -> bool:
+        return password_context.verify(user_plain_password, user_hashed_password)
+
+    @staticmethod
+    async def get_password_hash(user_plain_password: str) -> str:
+        salt = bcrypt.gensalt()
+        hashed_password = bcrypt.hashpw(user_plain_password.encode(), salt)
+        return hashed_password.decode('utf-8')
 
 
 class UserService:
@@ -45,7 +58,22 @@ class UserService:
             logging.error(f"Error retrieving user with ID {user_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Error retrieving user with ID {user_id}: {e} ")
 
-    async def create(self, user_data: SignUp):
+    async def get_by_email(self, user_email: str):
+        try:
+            result = await self.session.execute(select(User).filter(User.user_email == user_email))
+
+            if not result:
+                logging.error(f"Error retrieving user with email {user_email}")
+                return None
+
+            logging.info("Getting user processed successfully")
+            return result.scalars().first()
+
+        except Exception as e:
+            logging.error(f"Error retrieving user with email {user_email}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving user with email {user_email}: {e} ")
+
+    async def create(self, user_data: UserBase):
         try:
             salt = bcrypt.gensalt()
             hashed_password = bcrypt.hashpw(user_data.user_hashed_password.encode(), salt).decode('utf-8')

@@ -18,19 +18,25 @@ async def user_list(
     return await user_repo.get_all(page, users_per_page)
 
 
-@router.post("/user_create", status_code=HTTPStatus.CREATED, operation_id="user_signup")
-async def user_create(user_data: SignUp, session: AsyncSession = Depends(get_db)):
+@router.post("/user_create", status_code=HTTPStatus.CREATED, operation_id="user_create")
+async def user_create(user_data: UserBase, session: AsyncSession = Depends(get_db)):
     user_repo = UserService(session)
     return await user_repo.create(user_data)
 
 
-@router.get("/user_get_by_id/{user_id}", response_model=SignIn, operation_id="user_signin")
+@router.get("/user_get_by_id/{user_id}", response_model=UserBase, operation_id="user_get_by_id")
 async def user_get_by_id(user_id: str, session: AsyncSession = Depends(get_db)):
     user_repo = UserService(session)
     return await user_repo.get_by_id(user_id)
 
 
-@router.put("/user_update/{user_id}", response_model=UserBase, operation_id="user_update")
+@router.get("/user_get_by_email/{user_email}", response_model=UserBase, operation_id="user_get_by_email")
+async def user_get_by_email(user_email: str, session: AsyncSession = Depends(get_db)):
+    user_repo = UserService(session)
+    return await user_repo.get_by_email(user_email)
+
+
+@router.put("/user_update/{user_id}", response_model=UserUpdate, operation_id="user_update")
 async def user_update(user_id: str, user_data: UserUpdate, session: AsyncSession = Depends(get_db)):
     user_repo = UserService(session)
     logging.info("Getting user processed successfully")
