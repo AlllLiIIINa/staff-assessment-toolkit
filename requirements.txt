@@ -3,7 +3,7 @@ fastapi==0.103.1
 uvicorn==0.23.2
 psycopg2-binary==2.9.7
 asyncpg==0.28.0
-sqlalchemy>=1.4.42
+SQLAlchemy==2.0.21
 sqlalchemy-utils==0.41.1
 databases==0.8.0
 alembic==1.12.0
@@ -12,3 +12,5 @@ asyncio_redis==0.16.0
 anyio==3.7.1
 alembic==1.12.0
 fastapi-users==12.1.2
+email-validator==2.0.0
+python-jose==3.3.0

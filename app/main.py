@@ -1,12 +1,10 @@
 import logging
-
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.core.config import Settings
-from app.db.db import Base, engine
-from app.routers import health
+from app.db.db import get_db
+from app.routers import health, user_routers
 
 logging.basicConfig(
     filename='app.log',
@@ -15,6 +13,7 @@ logging.basicConfig(
     )
 
 app = FastAPI()
+app.db = None
 
 origins = [
     "http://localhost",
@@ -31,7 +30,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.on_event("startup")
+async def startup_event():
+    app.db = await get_db()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await app.db.close()
+
 app.include_router(health.router)
+app.include_router(user_routers.router)
 
 if __name__ == "__main__":
     uvicorn.run(
@@ -40,3 +50,4 @@ if __name__ == "__main__":
         port=Settings.ALLOWED_PORT,
         reload=True
     )
+
