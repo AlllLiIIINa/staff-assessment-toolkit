@@ -1,17 +1,47 @@
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+from asyncpg.exceptions import UniqueViolationError
 from typing import Optional
-from pydantic import EmailStr, Field, ConfigDict, BaseModel
-from app.schemas.user import UserBase, router
-
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from datetime import timedelta
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
+from typing_extensions import Union
+from app.core.config import Settings
+from app.db.db import get_db
+from app.db.models import User
+from app.depends.depends import get_current_user
+from app.schemas.user import UserBase
+from app.services.users import UserService
+from app.utils.security import create_access_token, Hasher
+from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl, ConfigDict
 
 auth_router = APIRouter()
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+async def user_auth(user_email: str, user_hashed_password: str, session: AsyncSession) -> Union[User, None]:
+    user_service = UserService(session)
+    user = await user_service.get_by_email(user_email=user_email)
+    if user is None:
+        logging.error(f"Error retrieving user with email {user_email}")
+        raise HTTPException(
+            status_code=404, detail=f"User with id {user_email} not found."
+        )
+    if not await Hasher.verify_password(user_hashed_password, user.user_hashed_password):
+        logging.error(
+            f"Error password match. Entered password: {user_hashed_password}, password in the database: {User.user_hashed_password}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Error password match. Entered password: {user_hashed_password}, password in the database: {User.user_hashed_password}"
+        )
+    return user
+
 
 class SignIn(BaseModel):
-    user_email: Optional[EmailStr] = Field(None, title="Email address")
-    user_hashed_password: Optional[str] = Field(None, title="Password", min_length=6)
-    user_firstname: Optional[str] = Field(None, title="First name")
-    user_lastname: Optional[str] = Field(None, title="Last name")
+    access_token: str
+    token_type: str
 
 
 class SignUp(BaseModel):
@@ -33,11 +63,45 @@ class SignUp(BaseModel):
     )
 
 
-@auth_router.get("/user_signup/")
-async def user_signup(user: SignUp) -> SignUp:
-    return user
+class UserOut(BaseModel):
+    user_email: Optional[EmailStr] = None
+    user_firstname: Optional[str] = None
+    user_lastname: Optional[str] = None
+    user_birthday: Optional[str] = None
+    user_city: Optional[str] = None
+    user_phone: Optional[str] = None
+    user_links: Optional[HttpUrl] = None
+    user_avatar: Optional[FilePath] = None
 
 
-@auth_router.get("/user_signin/{user_id}/")
-async def user_signup(user: UserBase) -> UserBase:
+@auth_router.post("/user_signup/", response_model=UserBase)
+async def user_signup(user_data: UserBase, session: AsyncSession = Depends(get_db)):
+    try:
+        user_repo = UserService(session)
+        return await user_repo.create(user_data)
+    except UniqueViolationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User with this email or username already exists {e}"
+        )
+
+
+@auth_router.post("/user_signin/", response_model=SignIn)
+async def user_signin(form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_db)):
+    user = await user_auth(form_data.username, form_data.password, session)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+    access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
+    access_token = await create_access_token(
+        data={"sub": user.user_email, "other_custom_data": [1, 2, 3, 4]},
+        expires_delta=access_token_expires,
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@auth_router.get('/me', response_model=UserOut, operation_id="me")
+async def get_me(user: User = Depends(get_current_user)):
     return user
