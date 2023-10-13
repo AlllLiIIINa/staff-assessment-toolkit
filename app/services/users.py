@@ -48,7 +48,6 @@ class UserService:
 
             if not result:
                 logging.error(f"Error retrieving user with email {user_email}")
-                return None
 
             logging.info("Getting user processed successfully")
             return result.scalars().first()

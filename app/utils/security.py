@@ -20,7 +20,7 @@ class Hasher:
         return hashed_password.decode('utf-8')
 
 
-async def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+async def create_access_token(data: dict, expires_delta: Optional[timedelta] = None, algorithm: str = "HS256"):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -29,9 +29,15 @@ async def create_access_token(data: dict, expires_delta: Optional[timedelta] = N
             minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME
         )
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode, Settings.SECRET_KEY, algorithm=Settings.ALGORITHM
-    )
+    if algorithm == "HS256":
+        encoded_jwt = jwt.encode(
+            to_encode, Settings.SECRET_KEY, algorithm=Settings.ALGORITHM
+        )
+    elif algorithm == "RS256":
+        encoded_jwt = jwt.encode(to_encode, Settings.SECRET_KEY, algorithm=Settings.ALGORITHM_AUTH0)
+    else:
+        raise ValueError("Unsupported algorithm")
+
     return encoded_jwt
 
 

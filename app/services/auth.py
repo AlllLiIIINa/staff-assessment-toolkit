@@ -1,24 +1,19 @@
 import logging
-from asyncpg.exceptions import UniqueViolationError
 from typing import Optional
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette import status
 from typing_extensions import Union
 from app.core.config import Settings
 from app.db.db import get_db
 from app.db.models import User
-from app.depends.depends import get_current_user
-from app.schemas.user import UserBase
+from app.depends.depends import get_current_user, create_user_in_auth0
 from app.services.users import UserService
 from app.utils.security import create_access_token, Hasher
 from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl, ConfigDict
 
 auth_router = APIRouter()
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 async def user_auth(user_email: str, user_hashed_password: str, session: AsyncSession) -> Union[User, None]:
@@ -74,29 +69,19 @@ class UserOut(BaseModel):
     user_avatar: Optional[FilePath] = None
 
 
-@auth_router.post("/user_signup/", response_model=UserBase)
-async def user_signup(user_data: UserBase, session: AsyncSession = Depends(get_db)):
-    try:
-        user_repo = UserService(session)
-        return await user_repo.create(user_data)
-    except UniqueViolationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"User with this email or username already exists {e}"
-        )
-
-
 @auth_router.post("/user_signin/", response_model=SignIn)
 async def user_signin(form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_db)):
     user = await user_auth(form_data.username, form_data.password, session)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-        )
+        auth0_user = create_user_in_auth0(form_data.username, form_data.password)
+        if auth0_user:
+            access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
+            access_token = create_access_token(data={"sub": form_data.username, "password": form_data.username},
+                                               expires_delta=access_token_expires, algorithm="RS256")
+            return {"access_token": access_token, "token_type": "bearer"}
     access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
     access_token = await create_access_token(
-        data={"sub": user.user_email, "other_custom_data": [1, 2, 3, 4]},
+        data={"sub": user.user_email, "password": user.user_hashed_password},
         expires_delta=access_token_expires,
     )
     return {"access_token": access_token, "token_type": "bearer"}
