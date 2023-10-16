@@ -76,7 +76,7 @@ async def user_signin(form_data: OAuth2PasswordRequestForm = Depends(), session:
         auth0_user = create_user_in_auth0(form_data.username, form_data.password)
         if auth0_user:
             access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
-            access_token = create_access_token(data={"sub": form_data.username, "password": form_data.username},
+            access_token = create_access_token(data={"sub": form_data.username, "password": form_data.password},
                                                expires_delta=access_token_expires, algorithm="RS256")
             return {"access_token": access_token, "token_type": "bearer"}
     access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
