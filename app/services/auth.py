@@ -8,7 +8,7 @@ from typing_extensions import Union
 from app.core.config import Settings
 from app.db.db import get_db
 from app.db.models import User
-from app.depends.depends import get_current_user, create_user_in_auth0
+from app.depends.depends import get_current_user, create_user_in_auth0, oauth2_scheme
 from app.services.users import UserService
 from app.utils.security import create_access_token, Hasher
 from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl, ConfigDict
@@ -76,7 +76,7 @@ async def user_signin(form_data: OAuth2PasswordRequestForm = Depends(), session:
         auth0_user = create_user_in_auth0(form_data.username, form_data.password)
         if auth0_user:
             access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
-            access_token = create_access_token(data={"sub": form_data.username, "password": form_data.username},
+            access_token = create_access_token(data={"sub": form_data.username, "password": form_data.password},
                                                expires_delta=access_token_expires, algorithm="RS256")
             return {"access_token": access_token, "token_type": "bearer"}
     access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)

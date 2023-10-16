@@ -16,7 +16,7 @@ from app.db.models import User
 from app.services.users import UserService
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user_signin/")
 
 
 class TokenPayload(BaseModel):
