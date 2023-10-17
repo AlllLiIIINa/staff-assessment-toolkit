@@ -25,13 +25,13 @@ async def user_create(user_data: UserBase, session: AsyncSession = Depends(get_d
     return await user_repo.create(user_data)
 
 
-@user_router.get("/user_get_by_id/{user_id}", response_model=UserBase, operation_id="user_get_by_id")
+@user_router.get("/user_get_by_id/{user_id}", operation_id="user_get_by_id")
 async def user_get_by_id(user_id: str, session: AsyncSession = Depends(get_db)):
     user_repo = UserService(session)
     return await user_repo.get_by_id(user_id)
 
 
-@user_router.get("/user_get_by_email/{user_email}", response_model=UserBase, operation_id="user_get_by_email")
+@user_router.get("/user_get_by_email/{user_email}", operation_id="user_get_by_email")
 async def user_get_by_email(user_email: str, session: AsyncSession = Depends(get_db)):
     user_repo = UserService(session)
     return await user_repo.get_by_email(user_email)

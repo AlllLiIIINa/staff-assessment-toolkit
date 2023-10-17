@@ -1,4 +1,7 @@
 import logging
+import secrets
+import string
+
 import bcrypt
 from fastapi import HTTPException
 from sqlalchemy import select, update
@@ -48,6 +51,7 @@ class UserService:
 
             if not result:
                 logging.error(f"Error retrieving user with email {user_email}")
+                return UserBase()
 
             logging.info("Getting user processed successfully")
             return result.scalars().first()
@@ -58,8 +62,12 @@ class UserService:
 
     async def create(self, user_data: UserBase):
         try:
+            if not user_data.user_hashed_password:
+                password = ''.join(secrets.choice(string.ascii_letters + string.digits) for i in range(8))
+            else:
+                password = user_data.user_hashed_password
             salt = bcrypt.gensalt()
-            hashed_password = bcrypt.hashpw(user_data.user_hashed_password.encode(), salt).decode('utf-8')
+            hashed_password = bcrypt.hashpw(password.encode(), salt).decode('utf-8')
             user_data.user_hashed_password = str(hashed_password)
             new_user = User(**user_data.model_dump())
             self.session.add(new_user)

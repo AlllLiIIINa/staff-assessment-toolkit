@@ -16,22 +16,22 @@ from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl, ConfigDict
 auth_router = APIRouter()
 
 
-async def user_auth(user_email: str, user_hashed_password: str, session: AsyncSession) -> Union[User, None]:
-    user_service = UserService(session)
-    user = await user_service.get_by_email(user_email=user_email)
+async def user_auth(user_email, user_hashed_password, session: AsyncSession) -> Union[User, None]:
+    user_repo = UserService(session)
+    user = await user_repo.get_by_email(user_email=user_email)
     if user is None:
         logging.error(f"Error retrieving user with email {user_email}")
-        raise HTTPException(
-            status_code=404, detail=f"User with id {user_email} not found."
-        )
-    if not await Hasher.verify_password(user_hashed_password, user.user_hashed_password):
-        logging.error(
-            f"Error password match. Entered password: {user_hashed_password}, password in the database: {User.user_hashed_password}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"Error password match. Entered password: {user_hashed_password}, password in the database: {User.user_hashed_password}"
-        )
-    return user
+        user = await user_repo.create(user_email)
+        return user
+    else:
+        if not await Hasher.verify_password(user_hashed_password, user.user_hashed_password):
+            logging.error(
+                f"Error password match. Entered password: {user_hashed_password}, password in the database: {User.user_hashed_password}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Error password match. Entered password: {user_hashed_password}, password in the database: {User.user_hashed_password}"
+            )
+        return user
 
 
 class SignIn(BaseModel):
@@ -72,19 +72,25 @@ class UserOut(BaseModel):
 @auth_router.post("/user_signin/", response_model=SignIn)
 async def user_signin(form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_db)):
     user = await user_auth(form_data.username, form_data.password, session)
-    if not user:
+    if isinstance(user, str):
+        user_repo = UserService(session)
+        user = await user_repo.create(user_email=form_data.username)
         auth0_user = create_user_in_auth0(form_data.username, form_data.password)
         if auth0_user:
             access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
-            access_token = create_access_token(data={"sub": form_data.username, "password": form_data.password},
-                                               expires_delta=access_token_expires, algorithm="RS256")
-            return {"access_token": access_token, "token_type": "bearer"}
-    access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
-    access_token = await create_access_token(
-        data={"sub": user.user_email, "password": user.user_hashed_password},
-        expires_delta=access_token_expires,
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+            access_token = await create_access_token(
+                data={"sub": form_data.username, "password": form_data.password},
+                expires_delta=access_token_expires,
+            )
+            return access_token
+        return {"access_token": user, "token_type": "bearer"}
+    else:
+        access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
+        access_token = await create_access_token(
+            data={"sub": form_data.username, "password": form_data.password},
+            expires_delta=access_token_expires,
+        )
+        return {"access_token": access_token, "token_type": "bearer"}
 
 
 @auth_router.get('/me', response_model=UserOut, operation_id="me")
