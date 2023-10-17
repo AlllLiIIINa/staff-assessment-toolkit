@@ -9,16 +9,16 @@ router = APIRouter()
 
 class UserBase(BaseModel):
     user_id: UUID = Field(json_schema_extra={"primary_key": True, "unique": True}, default_factory=uuid4, title="ID")
-    user_email: Optional[EmailStr] = Field(None, title="Email address")
-    user_firstname: str = Field(None, title="First name")
-    user_lastname: str = Field(None, title="Last name")
+    user_email: EmailStr = Field(None, title="Email address")
+    user_firstname: Optional[str] = Field(None, title="First name")
+    user_lastname: Optional[str] = Field(None, title="Last name")
     user_birthday: Optional[datetime.date] = Field(None, title="Birthday")
-    user_status: bool = Field(None, title="Status")
+    user_status: Optional[bool] = Field(None, title="Status")
     user_city: Optional[str] = Field(None, title="City")
     user_phone: Optional[str] = Field(None, title="Phone")
     user_links: Optional[HttpUrl] = Field(None, title="Link")
     user_avatar: Optional[FilePath] = Field(None, title="Avatar")
-    user_hashed_password: str = Field(None, title="Password", min_length=6)
+    user_hashed_password: Optional[str] = Field(None, title="Password", min_length=6)
     user_is_superuser: bool = Field(False, title="Superuser")
     user_created_at: Optional[datetime.datetime] = Field(None, title="Created")
     user_updated_at: Optional[datetime.datetime] = Field(None, title="Updated")
@@ -72,8 +72,3 @@ class UserUpdate(BaseModel):
             }
         }
     )
-
-
-@router.get("/users/", response_model=list[UserBase])
-async def user_list(users: UserBase) -> UserBase:
-    return users
