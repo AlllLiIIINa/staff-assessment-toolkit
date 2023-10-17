@@ -8,28 +8,15 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends, HTTPException
 from jose import jwt, JWTError
 from pydantic_core._pydantic_core import ValidationError
-from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.db import get_db
 from app.db.models import User
+from app.schemas.auth import TokenPayload
 from app.services.users import UserService
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user_signin/")
-
-
-class TokenPayload(BaseModel):
-    sub: Optional[str] = None
-    exp: Optional[int] = None
-    user_email: Optional[str] = None
-    user_firstname: Optional[str] = None
-    user_lastname: Optional[str] = None
-    user_birthday: Optional[str] = None
-    user_city: Optional[str] = None
-    user_phone: Optional[str] = None
-    user_links: Optional[str] = None
-    user_avatar: Optional[str] = None
 
 
 async def generate_random_password(length=12):
@@ -89,9 +76,7 @@ async def create_user_in_auth0(email, password):
 
 async def get_current_user(token: str = Depends(oauth2_scheme), session: AsyncSession = Depends(get_db)) -> User:
     try:
-        payload = jwt.decode(
-            token, Settings.SECRET_KEY, algorithms=[Settings.ALGORITHM]
-        )
+        payload = await decode_and_verify_access_token(token)
         token_data = TokenPayload(**payload)
         if datetime.fromtimestamp(token_data.exp) < datetime.now():
             logging.error(f"Token expired")

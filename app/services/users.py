@@ -35,15 +35,14 @@ class UserService:
             result = await self.session.execute(select(User).filter(User.user_id == user_id))
 
             if not result:
-                logging.error(f"Error retrieving user with ID {user_id}")
-                return None
+                raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
 
-            logging.info("Getting user processed successfu lly")
+            logging.info("Getting user processed successfully")
             return result.scalars().first()
 
         except Exception as e:
             logging.error(f"Error retrieving user with ID {user_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error retrieving user with ID {user_id}: {e} ")
+            raise HTTPException(status_code=500, detail=f"Error retrieving user with ID {user_id}: {e}")
 
     async def get_by_email(self, user_email: str):
         try:
@@ -51,7 +50,7 @@ class UserService:
 
             if not result:
                 logging.error(f"Error retrieving user with email {user_email}")
-                return UserBase()
+                return None
 
             logging.info("Getting user processed successfully")
             return result.scalars().first()
@@ -71,8 +70,14 @@ class UserService:
             user_data.user_hashed_password = str(hashed_password)
             new_user = User(**user_data.model_dump())
             self.session.add(new_user)
-            await self.session.commit()
+            try:
+                await self.session.commit()
+            except Exception as e:
 
+                logging.error(f"Error committing transaction: {str(e)}")
+                await self.session.rollback()
+            finally:
+                await self.session.close()
             logging.info(f"User created: {new_user.user_id}")
             logging.info("Creating user processed successfully")
             return new_user
@@ -104,13 +109,17 @@ class UserService:
             raise HTTPException(status_code=500, detail=f"Error updating user: {e}")
 
     async def delete(self, user_id: str):
+        user = await self.get_by_id(user_id)
+
+        if user is None:
+            raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
+
         try:
-            user = await self.get_by_id(user_id)
             await self.session.delete(user)
             await self.session.commit()
 
             logging.info("Deleting user processed successfully")
-            return await self.get_by_id(user_id)
+            return user
 
         except Exception as e:
             logging.error(f"Error deleting user with ID {user_id}: {e}")
