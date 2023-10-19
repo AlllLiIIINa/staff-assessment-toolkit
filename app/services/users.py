@@ -1,26 +1,13 @@
 import logging
+import secrets
+import string
+
 import bcrypt
 from fastapi import HTTPException
-from passlib.context import CryptContext
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import User
 from app.schemas.user import UserBase, UserUpdate
-
-
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-class Hasher:
-    @staticmethod
-    async def verify_password(user_plain_password: str, user_hashed_password: str) -> bool:
-        return password_context.verify(user_plain_password, user_hashed_password)
-
-    @staticmethod
-    async def get_password_hash(user_plain_password: str) -> str:
-        salt = bcrypt.gensalt()
-        hashed_password = bcrypt.hashpw(user_plain_password.encode(), salt)
-        return hashed_password.decode('utf-8')
 
 
 class UserService:
@@ -48,15 +35,14 @@ class UserService:
             result = await self.session.execute(select(User).filter(User.user_id == user_id))
 
             if not result:
-                logging.error(f"Error retrieving user with ID {user_id}")
-                return None
+                raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
 
-            logging.info("Getting user processed successfu lly")
+            logging.info("Getting user processed successfully")
             return result.scalars().first()
 
         except Exception as e:
             logging.error(f"Error retrieving user with ID {user_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error retrieving user with ID {user_id}: {e} ")
+            raise HTTPException(status_code=500, detail=f"Error retrieving user with ID {user_id}: {e}")
 
     async def get_by_email(self, user_email: str):
         try:
@@ -75,13 +61,23 @@ class UserService:
 
     async def create(self, user_data: UserBase):
         try:
+            if not user_data.user_hashed_password:
+                password = ''.join(secrets.choice(string.ascii_letters + string.digits) for i in range(8))
+            else:
+                password = user_data.user_hashed_password
             salt = bcrypt.gensalt()
-            hashed_password = bcrypt.hashpw(user_data.user_hashed_password.encode(), salt).decode('utf-8')
+            hashed_password = bcrypt.hashpw(password.encode(), salt).decode('utf-8')
             user_data.user_hashed_password = str(hashed_password)
             new_user = User(**user_data.model_dump())
             self.session.add(new_user)
-            await self.session.commit()
+            try:
+                await self.session.commit()
+            except Exception as e:
 
+                logging.error(f"Error committing transaction: {str(e)}")
+                await self.session.rollback()
+            finally:
+                await self.session.close()
             logging.info(f"User created: {new_user.user_id}")
             logging.info("Creating user processed successfully")
             return new_user
@@ -113,13 +109,17 @@ class UserService:
             raise HTTPException(status_code=500, detail=f"Error updating user: {e}")
 
     async def delete(self, user_id: str):
+        user = await self.get_by_id(user_id)
+
+        if user is None:
+            raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
+
         try:
-            user = await self.get_by_id(user_id)
             await self.session.delete(user)
             await self.session.commit()
 
             logging.info("Deleting user processed successfully")
-            return await self.get_by_id(user_id)
+            return user
 
         except Exception as e:
             logging.error(f"Error deleting user with ID {user_id}: {e}")

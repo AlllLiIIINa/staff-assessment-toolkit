@@ -27,6 +27,12 @@ class Settings:
     )
     REDIS_PORT = os.getenv("REDIS_PORT")
     REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
-    ACCESS_TOKEN_EXPIRY_TIME = os.getenv("ACCESS_TOKEN_EXPIRY_TIME")
+    ACCESS_TOKEN_EXPIRY_TIME = int(os.getenv("ACCESS_TOKEN_EXPIRY_TIME"))
+    REFRESH_TOKEN_EXPIRY_TIME = int(os.getenv("ACCESS_TOKEN_EXPIRY_TIME"))
     ALGORITHM = os.getenv("ALGORITHM")
-
+    ALGORITHM_AUTH0 = os.getenv("ALGORITHM_AUTH0")
+    TOKEN = os.getenv("TOKEN")
+    AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
+    CLIENT_ID = os.getenv("CLIENT_ID")
+    CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+    API_AUDIENCE = os.getenv("API_AUDIENCE")

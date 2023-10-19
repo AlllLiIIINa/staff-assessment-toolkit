@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import Settings
 from app.db.db import get_db
-from app.routers import health, user_routers
+from app.routers import health, user_routers, auth_routers
 
 logging.basicConfig(
     filename='app.log',
@@ -41,7 +41,8 @@ async def shutdown_event():
     await app.db.close()
 
 app.include_router(health.router)
-app.include_router(user_routers.router)
+app.include_router(user_routers.user_router)
+app.include_router(auth_routers.auth_router)
 
 if __name__ == "__main__":
     uvicorn.run(
@@ -50,4 +51,3 @@ if __name__ == "__main__":
         port=Settings.ALLOWED_PORT,
         reload=True
     )
-
