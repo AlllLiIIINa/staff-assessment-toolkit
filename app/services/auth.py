@@ -5,11 +5,11 @@ from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.models import User
-from app.schemas.user import UserBase
+from app.schemas.user import UserBase, UserUpdate
 from app.services.users import UserService
 from app.utils.security import create_access_token, Hasher
-from fastapi import HTTPException
-from app.depends.depends import create_user_in_auth0
+from fastapi import HTTPException, Depends
+from app.depends.depends import create_user_in_auth0, get_current_user
 
 
 class AuthService:
@@ -42,7 +42,7 @@ class AuthService:
             if auth0_user:
                 access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
                 access_token = await create_access_token(
-                    data={"sub": form_data.username, "password": form_data.password},
+                    data={"sub": form_data.username, "user_id": str(user.user_id)},
                     expires_delta=access_token_expires, algorithm="RS256"
                 )
                 return access_token
@@ -50,7 +50,47 @@ class AuthService:
         else:
             access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
             access_token = await create_access_token(
-                data={"sub": form_data.username, "password": form_data.password},
+                data={"sub": form_data.username, "user_id": str(user.user_id)},
                 expires_delta=access_token_expires, algorithm="HS256"
             )
             return {"access_token": access_token, "token_type": "bearer"}
+
+
+class ValidationService:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+        self.logger = logging.getLogger(__class__.__name__)
+
+    async def update_user(
+            self,
+            user: User,
+            user_id: str,
+            user_data: UserUpdate
+    ):
+        user_service = UserService(self.session)
+
+        if user.user_id != user_id:
+            self.logger.error("User attempted to update another user's profile, which is not allowed.")
+            raise HTTPException(status_code=403, detail="You cannot update another user's profile")
+
+        if user_data.user_email and user_data.user_email != user.user_email:
+            self.logger.error("User attempted to update their email, which is not allowed.")
+            raise HTTPException(status_code=400, detail="You cannot update your email")
+
+        if user_data.user_hashed_password:
+            user_data.user_hashed_password = await Hasher.get_password_hash(user_data.user_hashed_password)
+            user.user_hashed_password = user_data.user_hashed_password
+
+        if user_data.user_firstname is not None:
+            user.user_firstname = user_data.user_firstname
+
+        return await user_service.update(user_id, user_data)
+
+    async def delete_user(self, current_user: User, user_id: str):
+        user_repo = UserService(self.session)
+
+        if current_user.user_id != user_id:
+            self.logger.error("User attempted to delete another user's profile, which is not allowed.")
+            raise HTTPException(status_code=403, detail="You cannot delete another user's profile")
+
+        return await user_repo.delete(user_id)

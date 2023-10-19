@@ -82,6 +82,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: AsyncSe
             logging.error(f"Token expired")
             raise HTTPException(status_code=401, detail="Token expired", headers={"WWW-Authenticate": "Bearer"})
 
+        user_id = token_data.user_id
+        if not user_id:
+            logging.error(f"Invalid user_id in the token")
+            raise HTTPException(status_code=401, detail="Invalid user_id in the token")
+
     except(jwt.JWTError, ValidationError) as e:
         logging.error(f"Error decoding/validating token: {e}")
         try:
@@ -108,6 +113,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: AsyncSe
             raise HTTPException(status_code=403, detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
     user_repo = UserService(session)
     user = await user_repo.get_by_email(token_data.sub)
+
     if not user:
         logging.error(f"Could not find user")
         raise HTTPException(status_code=404, detail="Could not find user")

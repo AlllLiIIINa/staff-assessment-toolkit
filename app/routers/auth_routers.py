@@ -3,7 +3,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.db import get_db
 from app.db.models import User
-from app.services.auth import AuthService
+from app.schemas.user import UserUpdate
+from app.services.auth import AuthService, ValidationService
 from app.depends.depends import get_current_user
 from app.schemas.auth import SignIn, UserOut
 
@@ -19,3 +20,18 @@ async def user_signin(form_data: OAuth2PasswordRequestForm = Depends(), session:
 @auth_router.get('/me', response_model=UserOut, operation_id="me")
 async def get_me(user: User = Depends(get_current_user)):
     return user
+
+
+@auth_router.delete('/delete_user_profile', operation_id="delete_profile")
+async def delete_user(current_user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)):
+    validation_service = ValidationService(session)
+    return await validation_service.delete_user(current_user.user_id)
+
+
+@auth_router.put("/update_profile", operation_id="update_profile")
+async def update_user_profile(
+        user_data: UserUpdate,
+        current_user: User = Depends(get_current_user),
+        session: AsyncSession = Depends(get_db)):
+    validation_service = ValidationService(session)
+    return await validation_service.update_user(current_user, current_user.user_id, user_data)

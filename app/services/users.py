@@ -1,7 +1,6 @@
 import logging
 import secrets
 import string
-
 import bcrypt
 from fastapi import HTTPException
 from sqlalchemy import select, update

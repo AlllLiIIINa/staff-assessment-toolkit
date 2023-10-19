@@ -47,28 +47,18 @@ class UserBase(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    user_email: Optional[EmailStr] = None
+    user_email: Optional[str] = None
     user_firstname: Optional[str] = None
     user_lastname: Optional[str] = None
-    user_birthday: Optional[datetime.date] = None
-    user_city: Optional[str] = None
-    user_phone: Optional[str] = None
-    user_links: Optional[HttpUrl] = None
     user_hashed_password: Optional[str] = None
 
     model_config = ConfigDict(
         from_attributes=True,
         json_schema_extra={
             "example": {
-                "user_email": "",
                 "user_hashed_password": "",
                 "user_firstname": "",
                 "user_lastname": "",
-                "user_birthday": "",
-                "user_status": "",
-                "user_city": "",
-                "user_phone": "",
-                "user_links": "",
             }
         }
     )
