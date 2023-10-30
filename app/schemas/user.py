@@ -1,10 +1,9 @@
 import datetime
 from uuid import UUID, uuid4
 from typing import Optional
-from fastapi import APIRouter
-from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl, ConfigDict
 
-router = APIRouter()
+from fastapi import HTTPException
+from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl, ConfigDict, field_validator
 
 
 class UserBase(BaseModel):
@@ -51,6 +50,19 @@ class UserUpdate(BaseModel):
     user_firstname: Optional[str] = None
     user_lastname: Optional[str] = None
     user_hashed_password: Optional[str] = None
+    user_birthday: Optional[datetime.date] = None
+    user_city: Optional[str] = None
+    user_phone: Optional[str] = None
+    user_links: Optional[HttpUrl] = None
+    user_avatar: Optional[FilePath] = None
+
+    @field_validator("*", mode='before')
+    def update_only_allowed_fields(cls, values, field):
+        allowed_fields = {'user_firstname', 'user_lastname', 'user_hashed_password'}
+        field = field.field_name
+        if field not in allowed_fields:
+            raise HTTPException(status_code=400, detail=f"User is not allowed to update the field: {field}")
+        return values
 
     model_config = ConfigDict(
         from_attributes=True,
@@ -62,3 +74,13 @@ class UserUpdate(BaseModel):
             }
         }
     )
+
+
+class UserDelete(BaseModel):
+    user_id: UUID
+
+    @field_validator("*", mode='before')
+    def check_user_id_match(cls, values):
+        if "user_id" in values and values["user_id"] != values["user_id"]:
+            raise ValueError("You can only delete your own profile")
+        return values

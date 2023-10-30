@@ -5,7 +5,7 @@ from datetime import timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.models import User
-from app.schemas.user import UserBase, UserUpdate
+from app.schemas.user import UserBase, UserUpdate, UserDelete
 from app.services.users import UserService
 from app.utils.security import create_access_token, Hasher
 from fastapi import HTTPException, Depends
@@ -86,10 +86,10 @@ class ValidationService:
 
         return await user_service.update(user_id, user_data)
 
-    async def delete_user(self, current_user: User, user_id: str):
+    async def delete_user(self, user_data: UserDelete, user_id: str):
         user_repo = UserService(self.session)
 
-        if current_user.user_id != user_id:
+        if user_data.user_id != user_id:
             self.logger.error("User attempted to delete another user's profile, which is not allowed.")
             raise HTTPException(status_code=403, detail="You cannot delete another user's profile")
 
