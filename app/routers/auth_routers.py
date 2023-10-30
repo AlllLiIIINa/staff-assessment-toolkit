@@ -5,6 +5,7 @@ from app.db.db import get_db
 from app.db.models import User
 from app.schemas.user import UserUpdate, UserDelete
 from app.services.auth import AuthService, ValidationService
+from app.services.auth import AuthService
 from app.depends.depends import get_current_user
 from app.schemas.auth import SignIn, UserOut
 

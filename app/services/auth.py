@@ -10,6 +10,11 @@ from app.services.users import UserService
 from app.utils.security import create_access_token, Hasher
 from fastapi import HTTPException, Depends
 from app.depends.depends import create_user_in_auth0, get_current_user
+from app.schemas.user import UserBase
+from app.services.users import UserService
+from app.utils.security import create_access_token, Hasher
+from fastapi import HTTPException
+from app.depends.depends import create_user_in_auth0
 
 
 class AuthService:
@@ -43,6 +48,7 @@ class AuthService:
                 access_token_expires = timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRY_TIME)
                 access_token = await create_access_token(
                     data={"sub": form_data.username, "user_id": str(user.user_id)},
+                    data={"sub": form_data.username, "password": form_data.password},
                     expires_delta=access_token_expires, algorithm="RS256"
                 )
                 return access_token
@@ -94,3 +100,7 @@ class ValidationService:
             raise HTTPException(status_code=403, detail="You cannot delete another user's profile")
 
         return await user_repo.delete(user_id)
+                data={"sub": form_data.username, "password": form_data.password},
+                expires_delta=access_token_expires, algorithm="HS256"
+            )
+            return {"access_token": access_token, "token_type": "bearer"}
