@@ -74,13 +74,3 @@ class UserUpdate(BaseModel):
             }
         }
     )
-
-
-class UserDelete(BaseModel):
-    user_id: UUID
-
-    @field_validator("*", mode='before')
-    def check_user_id_match(cls, values):
-        if "user_id" in values and values["user_id"] != values["user_id"]:
-            raise ValueError("You can only delete your own profile")
-        return values
