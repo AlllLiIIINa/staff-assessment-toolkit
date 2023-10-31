@@ -1,13 +1,13 @@
 import logging
 import secrets
 import string
-
 import bcrypt
 from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import User
 from app.schemas.user import UserBase, UserUpdate
+from app.utils.security import Hasher
 
 
 class UserService:
@@ -93,6 +93,10 @@ class UserService:
             if not user:
                 logging.error(f"Error retrieving user with ID {user_id}")
                 return None
+
+            if user_data.user_hashed_password:
+                user_data.user_hashed_password = await Hasher.get_password_hash(user_data.user_hashed_password)
+                user.user_hashed_password = user_data.user_hashed_password
 
             logging.info(user_data)
             user_dict = user_data.model_dump()

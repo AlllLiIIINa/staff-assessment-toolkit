@@ -40,6 +40,7 @@ class UserOut(BaseModel):
 class TokenPayload(BaseModel):
     sub: Optional[str] = None
     exp: Optional[int] = None
+    user_id: Optional[str] = None
     user_email: Optional[str] = None
     user_firstname: Optional[str] = None
     user_lastname: Optional[str] = None

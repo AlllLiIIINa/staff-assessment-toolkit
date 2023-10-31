@@ -1,10 +1,9 @@
 import datetime
 from uuid import UUID, uuid4
 from typing import Optional
-from fastapi import APIRouter
-from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl, ConfigDict
 
-router = APIRouter()
+from fastapi import HTTPException
+from pydantic import BaseModel, Field, EmailStr, FilePath, HttpUrl, ConfigDict, field_validator
 
 
 class UserBase(BaseModel):
@@ -47,28 +46,31 @@ class UserBase(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    user_email: Optional[EmailStr] = None
+    user_email: Optional[str] = None
     user_firstname: Optional[str] = None
     user_lastname: Optional[str] = None
+    user_hashed_password: Optional[str] = None
     user_birthday: Optional[datetime.date] = None
     user_city: Optional[str] = None
     user_phone: Optional[str] = None
     user_links: Optional[HttpUrl] = None
-    user_hashed_password: Optional[str] = None
+    user_avatar: Optional[FilePath] = None
+
+    @field_validator("*", mode='before')
+    def update_only_allowed_fields(cls, values, field):
+        allowed_fields = {'user_firstname', 'user_lastname', 'user_hashed_password'}
+        field = field.field_name
+        if field not in allowed_fields:
+            raise HTTPException(status_code=400, detail=f"User is not allowed to update the field: {field}")
+        return values
 
     model_config = ConfigDict(
         from_attributes=True,
         json_schema_extra={
             "example": {
-                "user_email": "",
                 "user_hashed_password": "",
                 "user_firstname": "",
                 "user_lastname": "",
-                "user_birthday": "",
-                "user_status": "",
-                "user_city": "",
-                "user_phone": "",
-                "user_links": "",
             }
         }
     )
