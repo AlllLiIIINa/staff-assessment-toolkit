@@ -15,7 +15,8 @@ class CompanyService:
     async def get_all(self, page: int = 1, items_per_page: int = 10):
         try:
             offset = (page - 1) * items_per_page
-            query = select(self.model).filter(self.model.company_is_visible == True).offset(offset).limit(items_per_page)
+            query = (select(self.model).filter(self.model.company_is_visible is True).
+                     offset(offset).limit(items_per_page))
             result = await self.session.execute(query)
 
             logging.info("Getting company list processed successfully")
@@ -26,15 +27,19 @@ class CompanyService:
             logging.error(f"Error retrieving company list: {e}")
             raise HTTPException(status_code=500, detail=f"Error retrieving company list: {e}")
 
-    async def get_by_id(self, company_id: str):
+    async def get_by_id(self, company_id: str, user_id: str):
+        result = await self.session.execute(select(Company).filter(Company.company_id == company_id))
+        company = result.scalars().first()
+
+        if not company:
+            raise HTTPException(status_code=404, detail=f"Company with ID {company_id} not found")
+
+        if company.owner_id != user_id and not company.company_is_visible:
+            raise HTTPException(status_code=404, detail=f"Company with ID {company_id} is hidden")
+
         try:
-            result = await self.session.execute(select(Company).filter(Company.company_id == company_id, Company.company_is_visible == True))
-
-            if not result:
-                raise HTTPException(status_code=404, detail=f"Company with ID {company_id} not found")
-
             logging.info("Getting company processed successfully")
-            return result.scalars().first()
+            return company
 
         except Exception as e:
             logging.error(f"Error retrieving company with ID {company_id}: {e}")
@@ -48,12 +53,14 @@ class CompanyService:
 
             try:
                 await self.session.commit()
-            except Exception as e:
 
+            except Exception as e:
                 logging.error(f"Error committing transaction: {str(e)}")
                 await self.session.rollback()
+
             finally:
                 await self.session.close()
+
             logging.info(f"Company created: {new_company}")
             logging.info("Creating company processed successfully")
             return new_company
@@ -63,20 +70,21 @@ class CompanyService:
             raise HTTPException(status_code=500, detail=f"Error creating company: {e}")
 
     async def update(self, company_id: str, company_data: CompanyUpdate, user_id: str):
+        company = await self.get_by_id(company_id, user_id)
+
+        if company.owner_id != user_id:
+            raise HTTPException(status_code=403, detail="You are not the owner of this company")
+
+        if not company:
+            logging.error(f"Error retrieving company with ID {company_id}")
+            raise HTTPException(status_code=404, detail=f"Company with ID {company_id} not found")
+
         try:
-            company = await self.get_by_id(company_id)
-
-            if company.owner_id != user_id:
-                raise HTTPException(status_code=403, detail="You are not the owner of this company")
-
-            if not company:
-                logging.error(f"Error retrieving company with ID {company_id}")
-                raise HTTPException(status_code=404, detail=f"Company with ID {company_id} not found")
-
             logging.info(company_data)
-            company_dict = company_data.model_dump()
+            company_dict = company_data.model_dump(exclude_none=True)
             updated_company_dict = {key: value for key, value in company_dict.items() if value is not None}
-            query_company = update(self.model).where(self.model.company_id == company_id).values(updated_company_dict).returning(self.model.company_id)
+            query_company = (update(self.model).where(self.model.company_id == company_id)
+                             .values(updated_company_dict).returning(self.model.company_id))
             await self.session.execute(query_company)
             await self.session.commit()
 
@@ -88,15 +96,15 @@ class CompanyService:
             raise HTTPException(status_code=500, detail=f"Error updating company: {e}")
 
     async def delete(self, company_id: str, user_id: str):
+        company = await self.get_by_id(company_id, user_id)
+
+        if company is None:
+            raise HTTPException(status_code=404, detail=f"Company with ID {company_id} not found")
+
+        if company.owner_id != user_id:
+            raise HTTPException(status_code=403, detail="You are not the owner of this company")
+
         try:
-            company = await self.get_by_id(company_id)
-
-            if company is None:
-                raise HTTPException(status_code=404, detail=f"Company with ID {company_id} not found")
-
-            if company.owner_id != user_id:
-                raise HTTPException(status_code=403, detail="You are not the owner of this company")
-
             await self.session.delete(company)
             await self.session.commit()
 

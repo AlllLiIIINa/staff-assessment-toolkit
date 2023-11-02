@@ -9,10 +9,10 @@ from starlette.responses import JSONResponse
 
 from app.db.db import get_db, get_redis
 
-router = APIRouter()
+router = APIRouter(tags=["health"])
 
 
-@router.get("/")
+@router.get("/health")
 async def health_check():
     return JSONResponse(content={
         "status_code": 200,

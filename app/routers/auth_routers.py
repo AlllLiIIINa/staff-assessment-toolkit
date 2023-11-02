@@ -9,7 +9,7 @@ from app.services.auth import AuthService
 from app.depends.depends import get_current_user
 from app.schemas.auth import SignIn, UserOut
 
-auth_router = APIRouter()
+auth_router = APIRouter(tags=["auth"])
 
 
 @auth_router.post("/user_signin/", response_model=SignIn)
@@ -23,13 +23,13 @@ async def get_me(user: User = Depends(get_current_user)):
     return user
 
 
-@auth_router.delete('/delete_user_profile', operation_id="delete_profile")
-async def delete_user(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)):
+@auth_router.delete('/delete', operation_id="delete_profile")
+async def delete_user_profile(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)):
     validation_service = ValidationService(session)
     return await validation_service.delete_user(user, user.user_id)
 
 
-@auth_router.put("/update_profile", operation_id="update_profile")
+@auth_router.put("/update", operation_id="update_profile")
 async def update_user_profile(
         user_data: UserUpdate,
         current_user: User = Depends(get_current_user),

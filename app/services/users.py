@@ -31,12 +31,11 @@ class UserService:
             raise HTTPException(status_code=500, detail=f"Error retrieving entity list: {e}")
 
     async def get_by_id(self, user_id: str):
+        result = await self.session.execute(select(User).filter(User.user_id == user_id))
+
+        if not result:
+            raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
         try:
-            result = await self.session.execute(select(User).filter(User.user_id == user_id))
-
-            if not result:
-                raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
-
             logging.info("Getting user processed successfully")
             return result.scalars().first()
 
@@ -63,6 +62,7 @@ class UserService:
         try:
             if not user_data.user_hashed_password:
                 password = ''.join(secrets.choice(string.ascii_letters + string.digits) for i in range(8))
+
             else:
                 password = user_data.user_hashed_password
             salt = bcrypt.gensalt()
@@ -70,14 +70,17 @@ class UserService:
             user_data.user_hashed_password = str(hashed_password)
             new_user = User(**user_data.model_dump())
             self.session.add(new_user)
+
             try:
                 await self.session.commit()
-            except Exception as e:
 
+            except Exception as e:
                 logging.error(f"Error committing transaction: {str(e)}")
                 await self.session.rollback()
+
             finally:
                 await self.session.close()
+
             logging.info(f"User created: {new_user.user_id}")
             logging.info("Creating user processed successfully")
             return new_user
@@ -99,7 +102,7 @@ class UserService:
                 user.user_hashed_password = user_data.user_hashed_password
 
             logging.info(user_data)
-            user_dict = user_data.model_dump()
+            user_dict = user_data.model_dump(exclude_none=True)
             updated_user_dict = {key: value for key, value in user_dict.items() if value is not None}
             query_user = update(self.model).where(self.model.user_id == user_id).values(updated_user_dict).returning(self.model.user_id)
             await self.session.execute(query_user)
@@ -121,7 +124,6 @@ class UserService:
         try:
             await self.session.delete(user)
             await self.session.commit()
-
             logging.info("Deleting user processed successfully")
             return user
 
