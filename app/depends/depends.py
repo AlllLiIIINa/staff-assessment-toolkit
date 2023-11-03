@@ -16,7 +16,7 @@ from app.schemas.auth import TokenPayload
 from app.services.users import UserService
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user_signin/")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/signin/")
 
 
 async def generate_random_password(length=12):
@@ -79,12 +79,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: AsyncSe
         payload = await decode_and_verify_access_token(token)
         token_data = TokenPayload(**payload)
         if datetime.fromtimestamp(token_data.exp) < datetime.now():
-            logging.error(f"Token expired")
+            logging.error("Token expired")
             raise HTTPException(status_code=401, detail="Token expired", headers={"WWW-Authenticate": "Bearer"})
 
         user_id = token_data.user_id
         if not user_id:
-            logging.error(f"Invalid user_id in the token")
+            logging.error("Invalid user_id in the token")
             raise HTTPException(status_code=401, detail="Invalid user_id in the token")
 
     except(jwt.JWTError, ValidationError) as e:
@@ -115,6 +115,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: AsyncSe
     user = await user_repo.get_by_email(token_data.sub)
 
     if not user:
-        logging.error(f"Could not find user")
+        logging.error("Could not find user")
         raise HTTPException(status_code=404, detail="Could not find user")
     return user

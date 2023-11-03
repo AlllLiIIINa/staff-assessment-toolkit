@@ -1,7 +1,16 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, DateTime, String, Boolean, UUID
+from sqlalchemy import Column, DateTime, String, Boolean, UUID, ForeignKey
+from sqlalchemy.orm import relationship
 from app.db.db import Base
+
+
+class CompanyMembers(Base):
+    __tablename__ = "company_members"
+
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.company_id"), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), primary_key=True)
+    is_admin = Column(Boolean, default=False, nullable=False)
 
 
 class User(Base):
@@ -22,6 +31,8 @@ class User(Base):
     user_is_superuser = Column(Boolean, default=False, nullable=False)
     user_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
     user_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    companies = relationship("Company", back_populates="owner")
+    member = relationship("Company", secondary="company_members", back_populates="members")
 
     def __repr__(self):
         return (
@@ -30,5 +41,36 @@ class User(Base):
             f"user_email={self.user_email}, "
             f"user_firstname={self.user_firstname}, "
             f"user_lastname={self.user_lastname}, "
+            f")>"
+        )
+
+
+class Company(Base):
+    __tablename__: str = "companies"
+    __bind_key__ = "internship_db"
+
+    company_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
+    company_name = Column(String, default=None)
+    company_title = Column(String, default=None)
+    company_description = Column(String, default=None)
+    company_city = Column(String, default=None)
+    company_phone = Column(String, default=None)
+    company_links = Column(String, default=None)
+    company_avatar = Column(String, default=None)
+    company_is_visible = Column(Boolean, default=False, nullable=False)
+    company_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
+    company_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    owner_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id'))
+    owner = relationship("User", back_populates="companies")
+    members = relationship("User", secondary="company_members", back_populates="member")
+
+    def __repr__(self):
+        return (
+            f"<{self.__class__.__name__}("
+            f"company_id={self.company_id}, "
+            f"company_name={self.company_name}, "
+            f"company_title={self.company_title}, "
+            f"company_description={self.company_description}, "
+            f"company_is_visible={self.company_is_visible}, "
             f")>"
         )
