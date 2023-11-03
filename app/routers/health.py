@@ -1,18 +1,16 @@
 import logging
-
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse
-
 from app.db.db import get_db, get_redis
 
-router = APIRouter(tags=["health"])
+router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("/health")
+@router.get("/")
 async def health_check():
     return JSONResponse(content={
         "status_code": 200,

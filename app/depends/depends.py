@@ -16,7 +16,7 @@ from app.schemas.auth import TokenPayload
 from app.services.users import UserService
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user_signin/")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/signin/")
 
 
 async def generate_random_password(length=12):
