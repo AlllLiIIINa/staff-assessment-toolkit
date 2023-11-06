@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, DateTime, String, Boolean, UUID, ForeignKey
+from sqlalchemy import Column, DateTime, String, Boolean, UUID, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 from app.db.db import Base
 
@@ -11,6 +11,18 @@ class CompanyMembers(Base):
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.company_id"), primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), primary_key=True)
     is_admin = Column(Boolean, default=False, nullable=False)
+
+
+class CompanyInvitations(Base):
+    __tablename__ = "company_invitations"
+
+    invitation_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
+    sender_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
+    recipient_id = Column(UUID(as_uuid=True), nullable=False)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.company_id"), nullable=False)
+    invitation_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
+    invitation_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow,
+                                   nullable=False)
 
 
 class User(Base):
@@ -33,6 +45,7 @@ class User(Base):
     user_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     companies = relationship("Company", back_populates="owner")
     member = relationship("Company", secondary="company_members", back_populates="members")
+    sent_invitations = relationship("Company", secondary="company_invitations", back_populates="invitations")
 
     def __repr__(self):
         return (
@@ -63,6 +76,7 @@ class Company(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id'))
     owner = relationship("User", back_populates="companies")
     members = relationship("User", secondary="company_members", back_populates="member")
+    invitations = relationship("User", secondary="company_invitations", back_populates="sent_invitations")
 
     def __repr__(self):
         return (

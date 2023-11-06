@@ -60,3 +60,18 @@ class CompanyUpdate(BaseModel):
             }
         }
     )
+
+
+class CompanyInvitationCreate(BaseModel):
+    sender_id: UUID = None
+    recipient_id: UUID = None
+    company_id: UUID = None
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "recipient_id": "",
+                "company_id": "",
+            }
+        }
+    )
