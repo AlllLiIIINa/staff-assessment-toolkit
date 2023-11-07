@@ -5,7 +5,7 @@ from app.services.companies import CompanyService
 from ..db.db import get_db
 from ..db.models import User
 from ..depends.depends import get_current_user
-from ..schemas.company import CompanyUpdate, CompanyBase, CompanyInvitationCreate
+from ..schemas.company import CompanyUpdate, CompanyBase, CompanyInvitationCreate, CompanyAdmin
 from ..services.invitations import InvitationService
 
 company_router = APIRouter(prefix="/companies", tags=["companies"])
@@ -79,18 +79,18 @@ async def create_invitation(invitation_data: CompanyInvitationCreate, user: User
 
 @company_router.get("/user_requests/", operation_id="get_user_requests")
 async def user_requests(user: User = Depends(get_current_user),
-                            page: int = Query(default=1, description="Page number", ge=1),
-                            invitation_per_page: int = Query(default=10, description="Items per page", le=100),
-                            session: AsyncSession = Depends(get_db)):
+                        page: int = Query(default=1, description="Page number", ge=1),
+                        invitation_per_page: int = Query(default=10, description="Items per page", le=100),
+                        session: AsyncSession = Depends(get_db)):
     invitation_repo = InvitationService(session)
     return await invitation_repo.user_requests(user.user_id, page, invitation_per_page)
 
 
 @company_router.get("/user_invitations/", operation_id="get_user_invitations")
 async def user_invitations(user: User = Depends(get_current_user),
-                                  page: int = Query(default=1, description="Page number", ge=1),
-                                  invitation_per_page: int = Query(default=10, description="Items per page", le=100),
-                                  session: AsyncSession = Depends(get_db)):
+                           page: int = Query(default=1, description="Page number", ge=1),
+                           invitation_per_page: int = Query(default=10, description="Items per page", le=100),
+                           session: AsyncSession = Depends(get_db)):
     invitation_repo = InvitationService(session)
     return await invitation_repo.user_invitations(user.user_id, page, invitation_per_page)
 
@@ -104,17 +104,39 @@ async def manage_invitation(invitation_id: str, action: str, user: User = Depend
 
 @company_router.get("/invited_users/{company_id}", operation_id="get_invited_users")
 async def invited_users(company_id: str, user: User = Depends(get_current_user),
-                            page: int = Query(default=1, description="Page number", ge=1),
-                            invitation_per_page: int = Query(default=10, description="Items per page", le=100),
-                            session: AsyncSession = Depends(get_db)):
+                        page: int = Query(default=1, description="Page number", ge=1),
+                        invitation_per_page: int = Query(default=10, description="Items per page", le=100),
+                        session: AsyncSession = Depends(get_db)):
     invitation_repo = InvitationService(session)
     return await invitation_repo.invited_users(company_id, user.user_id, page, invitation_per_page)
 
 
 @company_router.get("/membership_requests/{company_id}", operation_id="get_membership_requests")
 async def membership_requests(company_id: str, user: User = Depends(get_current_user),
-                                  page: int = Query(default=1, description="Page number", ge=1),
-                                  invitation_per_page: int = Query(default=10, description="Items per page", le=100),
-                                  session: AsyncSession = Depends(get_db)):
+                              page: int = Query(default=1, description="Page number", ge=1),
+                              invitation_per_page: int = Query(default=10, description="Items per page", le=100),
+                              session: AsyncSession = Depends(get_db)):
     invitation_repo = InvitationService(session)
     return await invitation_repo.membership_requests(company_id, user.user_id, page, invitation_per_page)
+
+
+@company_router.get("/{user_id}/", operation_id="get_user_companies")
+async def get_user_companies(user_id: str, session: AsyncSession = Depends(get_db)):
+    company_repo = CompanyService(session)
+    return await company_repo.get_user_companies(user_id)
+
+
+@company_router.get("/{company_id}/admins", operation_id="get_admins")
+async def get_admins(company_id: str,
+                     page: int = Query(default=1, description="Page number", ge=1),
+                     admin_per_page: int = Query(default=10, description="Items per page", le=100),
+                     session: AsyncSession = Depends(get_db)):
+    company_repo = CompanyService(session)
+    return await company_repo.get_admins(company_id, page, admin_per_page)
+
+
+@company_router.put("/{company_id}/role", operation_id="set_admin_status")
+async def set_admin_status(admin_data: CompanyAdmin, user: User = Depends(get_current_user),
+                           session: AsyncSession = Depends(get_db)):
+    company_repo = CompanyService(session)
+    return await company_repo.set_admin_status(admin_data, user.user_id)

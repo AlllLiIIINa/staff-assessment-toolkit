@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Company, CompanyMembers
-from app.schemas.company import CompanyBase, CompanyUpdate
+from app.schemas.company import CompanyBase, CompanyUpdate, CompanyAdmin
 from app.services.users import UserService
 
 
@@ -37,10 +37,10 @@ class CompanyService:
             raise HTTPException(status_code=500, detail=f"Error retrieving company with ID {company_id}: {e}")
 
         if not company:
-            raise HTTPException(status_code=404, detail=f"Company with ID {company_id} not found")
+            raise HTTPException(status_code=404, detail=f"Error. Company with ID {company_id} not found")
 
         if company.owner_id != user_id and not company.company_is_visible:
-            raise HTTPException(status_code=404, detail=f"Company with ID {company_id} is hidden")
+            raise HTTPException(status_code=404, detail=f"Error. Company with ID {company_id} is hidden")
 
         logging.info("Getting company processed successfully")
         return company
@@ -64,7 +64,7 @@ class CompanyService:
         company = await self.get_by_id(company_id, user_id)
 
         if company.owner_id != user_id:
-            raise HTTPException(status_code=403, detail="You are not the owner of this company")
+            raise HTTPException(status_code=403, detail="Error. You are not the owner of this company")
 
         try:
             logging.info(company_data)
@@ -85,7 +85,7 @@ class CompanyService:
         company = await self.get_by_id(company_id, user_id)
 
         if company.owner_id != user_id:
-            raise HTTPException(status_code=403, detail="You are not the owner of this company")
+            raise HTTPException(status_code=403, detail="Error. You are not the owner of this company")
 
         try:
             await self.session.delete(company)
@@ -122,6 +122,17 @@ class CompanyService:
             logging.error(f"Error retrieving member list: {e}")
             raise HTTPException(status_code=500, detail=f"Error retrieving member list: {e}")
 
+    async def get_user_companies(self, user_id: str):
+        try:
+            result = await self.session.execute(select(CompanyMembers).filter((CompanyMembers.user_id == user_id)))
+            member = result.scalars().first()
+
+        except Exception as e:
+            logging.error(f"Error retrieving member with ID {user_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving companies for User with ID {user_id}: {e}")
+
+        return member
+
     async def remove_member(self, company_id: str, user_id: str, member_id: str):
         try:
             result = await self.session.execute(select(CompanyMembers).filter(
@@ -135,25 +146,28 @@ class CompanyService:
             raise HTTPException(status_code=500, detail=f"Error retrieving company with ID {company_id}: {e}")
 
         if not member:
-            raise HTTPException(status_code=404, detail=f"User with ID {member_id} is not a member of this company")
+            raise HTTPException(status_code=404,
+                                detail=f"Error. User with ID {member_id} is not a member of this company")
 
-        company_repo = CompanyService(self.session)
-        company = await company_repo.get_by_id(company_id, user_id)
+        company = await self.get_by_id(company_id, user_id)
 
         if company.owner_id != user_id:
-            raise HTTPException(status_code=403, detail="You are not the owner of this company")
+            raise HTTPException(status_code=403, detail="Error. You are not the owner of this company")
 
         if user_id == member_id:
-            raise HTTPException(status_code=400, detail="Owner cannot remove yourself from the company")
+            raise HTTPException(status_code=400, detail="Error. Owner cannot remove yourself from the company")
 
         return f"User has been successfully removed from your company"
 
     async def leave_company(self, company_id: str, user_id: str):
         try:
-            result = await self.session.execute(select(CompanyMembers).filter(
-                CompanyMembers.company_id == company_id, CompanyMembers.user_id == user_id))
-            member = result.scalars().first()
-            await self.session.delete(member)
+            result = await self.get_user_companies(user_id)
+
+            if not result:
+                raise HTTPException(status_code=404,
+                                    detail=f"Error. User with ID {user_id} not a member of any company")
+
+            await self.session.delete(result)
             await self.session.commit()
             company_repo = CompanyService(self.session)
             company = await company_repo.get_by_id(company_id, user_id)
@@ -162,10 +176,52 @@ class CompanyService:
             logging.error(f"Error leaving company with ID {company_id}: {e}")
             raise HTTPException(status_code=500, detail=f"Error leaving company with ID {company_id}: {e}")
 
-        if not member:
-            raise HTTPException(status_code=404, detail="You are not a member of this company")
-
         if company.owner_id == user_id:
-            raise HTTPException(status_code=400, detail="Company owner cannot leave the company")
+            raise HTTPException(status_code=400, detail="Error. Company owner cannot leave the company")
 
         return f"You have left the company with ID {company_id}"
+
+    async def get_admins(self, company_id: str, page: int = 1, admin_per_page: int = 10):
+        try:
+            offset = (page - 1) * admin_per_page
+            result = await self.session.execute(
+                select(CompanyMembers).filter(
+                    (CompanyMembers.company_id == company_id) &
+                    (CompanyMembers.is_admin == True)
+                ).offset(offset).limit(admin_per_page)
+            )
+            admins = result.scalars().all()
+            user_ids = [admin.user_id for admin in admins]
+            admins_with_user_data = []
+
+            for user_id in user_ids:
+                user_repo = UserService(self.session)
+                user = await user_repo.get_by_id(user_id)
+                if user:
+                    admin_data = {**user.__dict__}
+                    admins_with_user_data.append(admin_data)
+
+            return admins_with_user_data
+
+        except Exception as e:
+            logging.error(f"Error retrieving admins for company {company_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving admins for company {company_id}: {e}")
+
+    async def set_admin_status(self, admin_data: CompanyAdmin, user_id: str):
+        company = await self.get_by_id(admin_data.company_id, admin_data.user_id)
+
+        if company.owner_id != user_id:
+            raise HTTPException(status_code=403, detail="Error. You are not the owner of this company")
+        try:
+            member = await self.get_user_companies(admin_data.user_id)
+            member.is_admin = admin_data.is_admin
+            await self.session.commit()
+
+            action = "set" if admin_data.is_admin else "removed from"
+
+        except Exception as e:
+            logging.error(f"Error setting admin role for User with ID {user_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Error setting admin role for User with ID {user_id}: {e}")
+
+        return (f"User with ID {admin_data.user_id} has been {action} "
+                f"admin status for the company with ID {admin_data.company_id}")
