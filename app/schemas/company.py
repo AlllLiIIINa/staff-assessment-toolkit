@@ -1,6 +1,6 @@
 import datetime
-from uuid import UUID, uuid4
 from typing import Optional
+from uuid import UUID, uuid4
 from pydantic import BaseModel, Field, FilePath, HttpUrl, ConfigDict
 
 
@@ -63,9 +63,9 @@ class CompanyUpdate(BaseModel):
 
 
 class CompanyInvitationCreate(BaseModel):
-    sender_id: UUID = None
-    recipient_id: UUID = None
-    company_id: UUID = None
+    sender_id: UUID
+    recipient_id: UUID
+    company_id: UUID
     model_config = ConfigDict(
         from_attributes=True,
         json_schema_extra={
@@ -77,17 +77,8 @@ class CompanyInvitationCreate(BaseModel):
     )
 
 
-class CompanyAdmin(BaseModel):
-    user_id: str
-    company_id: str
-    is_admin: bool
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
-            "example": {
-                "user_id": "",
-                "company_id": "",
-                "is_admin": "False",
-            }
-        }
-    )
+class CompanyMemberResponse(BaseModel):
+    user_id: UUID
+    user_email: str
+    user_firstname: str
+    user_lastname: str
