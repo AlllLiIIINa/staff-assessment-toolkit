@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, DateTime, String, Boolean, UUID, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, String, Boolean, UUID, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.db import Base
 
@@ -63,7 +63,7 @@ class Company(Base):
     __bind_key__ = "internship_db"
 
     company_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
-    company_name = Column(String, default=None)
+    company_name = Column(String, default=None, unique=True)
     company_title = Column(String, default=None)
     company_description = Column(String, default=None)
     company_city = Column(String, default=None)
