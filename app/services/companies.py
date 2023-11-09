@@ -4,8 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Company, CompanyMembers, User
 from app.depends.exceptions import ErrorRetrievingList, ErrorRetrievingCompany, CompanyNotFound, \
     ErrorHiddenCompany, ErrorCreatingCompany, NotOwner, ErrorUpdatingCompany, ErrorDeletingCompany, \
-    ErrorRetrievingMember, ErrorRemovingMember, OwnerLeave, ErrorLeavingCompany, NotMember, AlreadyExistsCompany
-from app.schemas.company import CompanyBase, CompanyUpdate, CompanyMemberResponse
+    ErrorRetrievingMember, ErrorRemovingMember, OwnerLeave, ErrorLeavingCompany, NotMember, AlreadyExistsCompany, \
+    ErrorRetrievingAdmin, ErrorSettingRoleAdmin
+from app.schemas.company import CompanyBase, CompanyUpdate, CompanyMemberResponse, CompanyAdmin
+from app.services.users import UserService
 
 
 class CompanyService:
@@ -13,6 +15,7 @@ class CompanyService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
+        self.user_service = UserService(self.session)
 
     async def get_all(self, page: int = 1, items_per_page: int = 10):
         try:
@@ -134,6 +137,17 @@ class CompanyService:
             logging.error(f"Error retrieving member list: {e}")
             raise ErrorRetrievingMember(e)
 
+    async def get_user_companies(self, user_id: str):
+        try:
+            result = await self.session.execute(select(CompanyMembers).filter((CompanyMembers.user_id == user_id)))
+            member = result.scalars().first()
+
+        except Exception as e:
+            logging.error(f"Error retrieving member with ID {user_id}: {e}")
+            raise ErrorRetrievingCompany(e)
+
+        return member
+
     async def remove_member(self, company_id: str, user_id: str, member_id: str):
         try:
             result = await self.session.scalars(select(CompanyMembers).filter(
@@ -182,3 +196,44 @@ class CompanyService:
         except Exception as e:
             logging.error(f"Error leaving company with ID {company_id}: {e}")
             raise ErrorLeavingCompany(company_id, e)
+
+    async def get_admins(self, company_id: str, page: int = 1, admin_per_page: int = 10):
+        try:
+            offset = (page - 1) * admin_per_page
+            result = await self.session.execute(
+                select(CompanyMembers).filter(
+                    (CompanyMembers.company_id == company_id) &
+                    (CompanyMembers.is_admin == True)
+                ).offset(offset).limit(admin_per_page)
+            )
+            admins = result.scalars().all()
+            user_ids = [admin.user_id for admin in admins]
+            admins_with_user_data = []
+
+            for user_id in user_ids:
+                user = await self.user_service.get_by_id(user_id)
+                if user:
+                    admin_data = {**user.__dict__}
+                    admins_with_user_data.append(admin_data)
+
+            return admins_with_user_data
+
+        except Exception as e:
+            logging.error(f"Error retrieving admins for company {company_id}: {e}")
+            raise ErrorRetrievingAdmin(e)
+
+    async def set_admin_status(self, admin_data: CompanyAdmin, user_id: str):
+        try:
+            company = await self.get_by_id(admin_data.company_id, admin_data.user_id)
+
+            if company.owner_id != user_id:
+                raise NotOwner
+            member = await self.get_user_companies(admin_data.user_id)
+            member.is_admin = admin_data.is_admin
+            await self.session.commit()
+            action = "set" if admin_data.is_admin else "removed from"
+            return (f"User with ID {admin_data.user_id} has been {action} "
+                    f"admin status for the company with ID {admin_data.company_id}")
+        except Exception as e:
+            logging.error(f"Error setting admin role for User: {e}")
+            raise ErrorSettingRoleAdmin(e)

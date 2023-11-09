@@ -95,6 +95,11 @@ class ErrorRetrievingInvitation(ErrorRetrieving):
         super().__init__(object_type="invitations for User", e=e)
 
 
+class ErrorRetrievingAdmin(ErrorRetrieving):
+    def __init__(self, e):
+        super().__init__(object_type="admins for company", e=e)
+
+
 class AlreadyExists(CustomException):
     def __init__(self, **kwargs):
         super().__init__(status_code=409, detail="{object_type} already exists.", **kwargs)
@@ -213,6 +218,16 @@ class InvalidToken(Invalid):
 class InvalidAction(Invalid):
     def __init__(self):
         super().__init__(object_type="Action", details="use 'accept' or 'reject")
+
+
+class ErrorSettingRole(CustomException):
+    def __init__(self, **kwargs):
+        super().__init__(status_code=500, detail="Error setting {object_type} role for User: {e}", **kwargs)
+
+
+class ErrorSettingRoleAdmin(ErrorSettingRole):
+    def __init__(self, e):
+        super().__init__(object_type="Admin", e=e)
 
 
 class ErrorPasswordMatch(CustomException):

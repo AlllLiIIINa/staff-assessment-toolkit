@@ -2,7 +2,7 @@ from http import HTTPStatus
 from fastapi import APIRouter, Depends, Query
 from app.db.models import User
 from app.depends.depends import get_company_service, get_invitation_service
-from app.schemas.company import CompanyUpdate, CompanyBase, CompanyInvitationCreate
+from app.schemas.company import CompanyUpdate, CompanyBase, CompanyInvitationCreate, CompanyAdmin
 from app.services.auth import AuthService
 from app.services.companies import CompanyService
 from app.services.invitations import InvitationService
@@ -102,3 +102,22 @@ async def membership_requests(company_id: str, user: User = Depends(AuthService.
                               invitation_per_page: int = Query(default=10, description="Items per page", le=100),
                               invitation_service: InvitationService = Depends(get_invitation_service)):
     return await invitation_service.membership_requests(company_id, user.user_id, page, invitation_per_page)
+
+
+@company_router.get("/{user_id}/", operation_id="get_user_companies")
+async def get_user_companies(user_id: str, company_service: CompanyService = Depends(get_company_service)):
+    return await company_service.get_user_companies(user_id)
+
+
+@company_router.get("/{company_id}/admins", operation_id="get_admins")
+async def get_admins(company_id: str,
+                     page: int = Query(default=1, description="Page number", ge=1),
+                     admin_per_page: int = Query(default=10, description="Items per page", le=100),
+                     company_service: CompanyService = Depends(get_company_service)):
+    return await company_service.get_admins(company_id, page, admin_per_page)
+
+
+@company_router.put("/{company_id}/role", operation_id="set_admin_status")
+async def set_admin_status(admin_data: CompanyAdmin, user: User = Depends(AuthService.get_current_user),
+                           company_service: CompanyService = Depends(get_company_service)):
+    return await company_service.set_admin_status(admin_data, user.user_id)

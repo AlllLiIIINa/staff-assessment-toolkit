@@ -82,3 +82,19 @@ class CompanyMemberResponse(BaseModel):
     user_email: str
     user_firstname: str
     user_lastname: str
+
+
+class CompanyAdmin(BaseModel):
+    user_id: str
+    company_id: str
+    is_admin: bool
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "user_id": "",
+                "company_id": "",
+                "is_admin": "False",
+            }
+        }
+    )
