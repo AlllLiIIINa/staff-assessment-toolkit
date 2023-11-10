@@ -88,7 +88,7 @@ async def manage_invitation(invitation_id: str, action: str, user: User = Depend
     return await invitation_service.handle(user.user_id, invitation_id, action)
 
 
-@company_router.get("/invited_users/{company_id}", operation_id="get_invited_users")
+@company_router.get("{company_id}/invited", operation_id="get_invited_users")
 async def invited_users(company_id: str, user: User = Depends(AuthService.get_current_user),
                         page: int = Query(default=1, description="Page number", ge=1),
                         invitation_per_page: int = Query(default=10, description="Items per page", le=100),
