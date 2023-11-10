@@ -23,10 +23,9 @@ class InvitationService:
                 raise InviteToOwnCompany
 
             result = await self.session.scalars(select(User).filter(User.user_id == invitation_data.recipient_id))
-            recipient = result.first()
 
-            if not recipient:
-                logging.error("You cannot invite yourself to your own company")
+            if not result.first():
+                logging.error(f"Error retrieving User with ID {invitation_data.recipient_id}")
                 raise ErrorRetrievingUser(e=invitation_data.recipient_id)
 
             result = await self.session.scalars(select(self.model).filter(
@@ -41,9 +40,8 @@ class InvitationService:
                 CompanyMembers.company_id == invitation_data.company_id,
                 CompanyMembers.user_id == invitation_data.recipient_id
             ))
-            existing_member = result.first()
 
-            if existing_member:
+            if result.first():
                 logging.error("The invited user is already a member of the company")
                 raise AlreadyExistsMember
 
@@ -95,17 +93,18 @@ class InvitationService:
 
     async def invited_users(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10):
         try:
+            company = await self.company_service.get_by_id(company_id, user_id)
+
+            if company.owner_id != user_id:
+                logging.error("You are not the owner of this company")
+                raise NotOwner
+
             offset = (page - 1) * items_per_page
             result = await self.session.scalars(select(self.model).filter(
                 (self.model.company_id == company_id) &
                 (self.model.sender_id == user_id)
             ).offset(offset).limit(items_per_page))
             invitations = result.all()
-            company = await self.company_service.get_by_id(company_id, user_id)
-
-            if company.owner_id != user_id:
-                logging.error("You are not the owner of this company")
-                raise NotOwner
 
             return invitations
 
@@ -115,16 +114,17 @@ class InvitationService:
 
     async def membership_requests(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10):
         try:
+            company = await self.company_service.get_by_id(company_id, user_id)
+
+            if company.owner_id != user_id:
+                raise NotOwner
+
             offset = (page - 1) * items_per_page
             result = await self.session.scalars(select(self.model).filter(
                 (self.model.company_id == company_id) &
                 (self.model.recipient_id == user_id) &
                 (self.model.sender_id != user_id)).offset(offset).limit(items_per_page))
             membership_requests = result.all()
-            company = await self.company_service.get_by_id(company_id, user_id)
-
-            if company.owner_id != user_id:
-                raise NotOwner
 
             return membership_requests
 
@@ -138,8 +138,7 @@ class InvitationService:
             result = await self.session.scalars(select(self.model).filter(
                 (self.model.recipient_id == user_id) &
                 (self.model.sender_id != user_id)).offset(offset).limit(items_per_page))
-            membership_requests = result.all()
-            return membership_requests
+            return result.all()
 
         except Exception as e:
             logging.error(f"Error getting membership requests for user with ID {user_id}: {e}")
@@ -150,8 +149,7 @@ class InvitationService:
             offset = (page - 1) * items_per_page
             result = await self.session.scalars(select(self.model).filter(
                 (self.model.sender_id == user_id)).offset(offset).limit(items_per_page))
-            invitations = result.all()
-            return invitations
+            return result.all()
 
         except Exception as e:
             logging.error(f"Error getting invitations for user with ID {user_id}: {e}")

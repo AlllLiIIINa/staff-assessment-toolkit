@@ -48,7 +48,7 @@ async def get_company_members(company_id: str, page: int = Query(default=1, desc
     return await company_service.get_company_members(company_id, page, members_per_page)
 
 
-@company_router.post("/{company_id}/{member_id}", operation_id="remove_member")
+@company_router.delete("/{company_id}/{member_id}", operation_id="remove_member")
 async def remove_member(company_id: str, member_id: str, user: User = Depends(AuthService.get_current_user),
                         company_service: CompanyService = Depends(get_company_service)):
     return await company_service.remove_member(company_id, user.user_id, member_id)
@@ -74,7 +74,7 @@ async def user_requests(user: User = Depends(AuthService.get_current_user),
     return await invitation_service.user_requests(user.user_id, page, invitation_per_page)
 
 
-@company_router.get("/user_invitations/", operation_id="get_user_invitations")
+@company_router.get("/{company_id}/invitations", operation_id="get_user_invitations")
 async def user_invitations(user: User = Depends(AuthService.get_current_user),
                            page: int = Query(default=1, description="Page number", ge=1),
                            invitation_per_page: int = Query(default=10, description="Items per page", le=100),
@@ -88,7 +88,7 @@ async def manage_invitation(invitation_id: str, action: str, user: User = Depend
     return await invitation_service.handle(user.user_id, invitation_id, action)
 
 
-@company_router.get("/invited_users/{company_id}", operation_id="get_invited_users")
+@company_router.get("{company_id}/invited", operation_id="get_invited_users")
 async def invited_users(company_id: str, user: User = Depends(AuthService.get_current_user),
                         page: int = Query(default=1, description="Page number", ge=1),
                         invitation_per_page: int = Query(default=10, description="Items per page", le=100),
@@ -96,7 +96,7 @@ async def invited_users(company_id: str, user: User = Depends(AuthService.get_cu
     return await invitation_service.invited_users(company_id, user.user_id, page, invitation_per_page)
 
 
-@company_router.get("/membership_requests/{company_id}", operation_id="get_membership_requests")
+@company_router.get("/{company_id}/requests", operation_id="get_membership_requests")
 async def membership_requests(company_id: str, user: User = Depends(AuthService.get_current_user),
                               page: int = Query(default=1, description="Page number", ge=1),
                               invitation_per_page: int = Query(default=10, description="Items per page", le=100),

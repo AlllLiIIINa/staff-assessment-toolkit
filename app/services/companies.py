@@ -153,8 +153,6 @@ class CompanyService:
             result = await self.session.scalars(select(CompanyMembers).filter(
                 CompanyMembers.company_id == company_id, CompanyMembers.user_id == member_id))
             member = result.first()
-            await self.session.delete(member)
-            await self.session.commit()
 
             if not member:
                 raise NotMember
@@ -169,6 +167,9 @@ class CompanyService:
                 logging.error("Owner cannot remove yourself from the company")
                 raise OwnerLeave
 
+            await self.session.delete(member)
+            await self.session.commit()
+
             return "User has been successfully removed from your company"
 
         except Exception as e:
@@ -180,8 +181,6 @@ class CompanyService:
             result = await self.session.scalars(select(CompanyMembers).filter(
                 CompanyMembers.company_id == company_id, CompanyMembers.user_id == user_id))
             member = result.first()
-            await self.session.delete(member)
-            await self.session.commit()
             company = await self.get_by_id(company_id, user_id)
 
             if not member:
@@ -190,6 +189,9 @@ class CompanyService:
             if company.owner_id == user_id:
                 logging.error("Owner cannot leave the company")
                 raise OwnerLeave
+
+            await self.session.delete(member)
+            await self.session.commit()
 
             return f"You have left the company with ID {company_id}"
 
