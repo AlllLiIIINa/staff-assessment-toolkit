@@ -63,7 +63,7 @@ class CompanyUpdate(BaseModel):
 
 
 class CompanyInvitationCreate(BaseModel):
-    sender_id: UUID
+    sender_id: Optional[UUID] = None
     recipient_id: UUID
     company_id: UUID
     model_config = ConfigDict(

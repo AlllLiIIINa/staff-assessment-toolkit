@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 from app.core.config import Settings
 from app.db.db import get_db
 from app.depends.exceptions import CustomException
-from app.routers import health, user_routers, auth_routers, company_routers
+from app.routers import health, user_routers, auth_routers, company_routers, quiz_routers
 
 logging.basicConfig(
     filename='app.log',
@@ -55,6 +55,7 @@ app.include_router(health.router)
 app.include_router(user_routers.user_router)
 app.include_router(auth_routers.auth_router)
 app.include_router(company_routers.company_router)
+app.include_router(quiz_routers.quiz_router)
 
 if __name__ == "__main__":
     uvicorn.run(

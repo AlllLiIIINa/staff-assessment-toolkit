@@ -1,0 +1,176 @@
+import logging
+from sqlalchemy import update, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.models import Quiz,  CompanyMembers, Question
+from app.depends.exceptions import ErrorRetrievingList, AlreadyExistsQuiz, NotOwnerOrAdmin, ErrorCreatingQuiz, \
+    QuizNotFound, ErrorRetrievingQuiz, NotMember, ErrorUpdatingQuiz, ErrorDeletingQuiz, ErrorPassQuiz, EmptyAnswer, \
+    LessThen2Questions
+from app.schemas.quiz import QuizBase, QuizUpdate, QuizPass
+
+
+class QuizService:
+    model = Quiz
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def get_all(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10):
+        try:
+            offset = (page - 1) * items_per_page
+            result = await self.session.scalars(select(CompanyMembers)
+                                                .filter(CompanyMembers.user_id == user_id,
+                                                        CompanyMembers.company_id == company_id))
+            if not result.first():
+                logging.error("You are not member of this company")
+                raise NotMember
+
+            quizzes = await self.session.scalars(select(self.model).filter(self.model.company_id == company_id)
+                                                 .offset(offset).limit(items_per_page))
+            logging.info("Getting quiz list processed successfully")
+            return [QuizBase(**quiz.__dict__) for quiz in quizzes.all()]
+
+        except Exception as e:
+            logging.error(f"Error retrieving quiz list: {e}")
+            raise ErrorRetrievingList(e)
+
+    async def get_by_id(self, quiz_id: str, user_id: str):
+        try:
+            query = await self.session.scalars(select(self.model).filter(self.model.quiz_id == quiz_id))
+            quiz = query.first()
+
+            if not quiz:
+                logging.error(f"Quiz with ID {quiz_id} not found")
+                raise QuizNotFound(quiz_id)
+
+            quiz_company_id = await self.session.scalar(select(Quiz.company_id).filter(Quiz.quiz_id == quiz_id))
+            result = await self.session.scalars(select(CompanyMembers)
+                                                .filter(CompanyMembers.user_id == user_id,
+                                                        CompanyMembers.company_id == quiz_company_id))
+
+            if not result.first():
+                logging.error("You are not the member of this company")
+                raise NotMember
+
+            logging.info("Getting quiz processed successfully")
+            return quiz
+
+        except Exception as e:
+            logging.error(f"Error retrieving quiz with ID {quiz_id}: {e}")
+            raise ErrorRetrievingQuiz(e)
+
+    async def create(self, user_id: str, quiz_data: QuizBase):
+        try:
+            result = await (self.session.scalars(select(self.model)
+                                                 .filter(self.model.quiz_name == quiz_data.quiz_name)))
+
+            if result.first():
+                logging.error("Quiz already exist")
+                raise AlreadyExistsQuiz
+
+            result = await self.session.scalars(select(CompanyMembers).filter
+                                                (CompanyMembers.company_id == quiz_data.company_id,
+                                                 CompanyMembers.user_id == user_id,
+                                                 CompanyMembers.is_admin == True))
+
+            if not result.first():
+                logging.error("You are not owner or admin of this company")
+                raise NotOwnerOrAdmin
+
+            quiz_data.quiz_created_by = user_id
+            new_quiz = self.model(**quiz_data.model_dump())
+            self.session.add(new_quiz)
+            await self.session.commit()
+            logging.info(f"Quiz created: {new_quiz}")
+            logging.info("Creating quiz processed successfully")
+            return new_quiz
+
+        except Exception as e:
+            logging.error(f"Error creating quiz: {e}")
+            raise ErrorCreatingQuiz(e)
+
+    async def update(self, quiz_id: str, quiz_data: QuizUpdate, user_id: str):
+        try:
+            quiz_company_id = await self.session.scalar(select(self.model.company_id)
+                                                        .filter(self.model.quiz_id == quiz_id))
+            result = await self.session.scalars(select(CompanyMembers).filter
+                                                (CompanyMembers.company_id == quiz_company_id,
+                                                 CompanyMembers.user_id == user_id, CompanyMembers.is_admin == True))
+
+            if not result.first():
+                logging.error("You are not the owner or admin of this company")
+                raise NotOwnerOrAdmin
+
+            quiz_data.quiz_updated_by = user_id
+            logging.info(quiz_data)
+            quiz_dict = quiz_data.model_dump(exclude_none=True)
+            await self.session.execute(update(self.model).where(self.model.quiz_id == quiz_id)
+                                       .values(quiz_dict).returning(self.model.quiz_id))
+            await self.session.commit()
+
+            logging.info(f"Company update successful for quiz ID: {quiz_id}")
+            return await self.get_by_id(quiz_id, user_id)
+
+        except Exception as e:
+            logging.error(f"Error during user update for quiz ID: {quiz_id}: {e}")
+            raise ErrorUpdatingQuiz(e)
+
+    async def delete(self, quiz_id: str, user_id: str):
+        try:
+            quiz_company_id = await self.session.scalar(select(self.model.company_id)
+                                                        .filter(self.model.quiz_id == quiz_id))
+            result = await self.session.scalars(select(CompanyMembers).filter
+                                                (CompanyMembers.company_id == quiz_company_id,
+                                                 CompanyMembers.user_id == user_id, CompanyMembers.is_admin == True))
+
+            if not result.first():
+                logging.error("You are not the owner or admin of this company")
+                raise NotOwnerOrAdmin
+
+            quiz = await self.get_by_id(quiz_id, user_id)
+            await self.session.delete(quiz)
+            await self.session.commit()
+            logging.info("Deleting quiz processed successfully")
+            return quiz
+
+        except Exception as e:
+            logging.error(f"Error deleting quiz with ID {quiz_id}: {e}")
+            raise ErrorDeletingQuiz(e)
+
+    async def quiz_pass(self, quiz_id: str, quiz_data: QuizPass, user_id: str):
+        try:
+            quiz_company_id = await self.session.scalar(select(Quiz.company_id).filter(Quiz.quiz_id == quiz_id))
+            result = await self.session.scalars(select(CompanyMembers)
+                                                .filter(CompanyMembers.user_id == user_id,
+                                                        CompanyMembers.company_id == quiz_company_id))
+
+            if not result.first():
+                logging.error("You are not the member of this company")
+                raise NotMember
+
+            if not quiz_data.answers:
+                logging.error("Answer is empty")
+                raise EmptyAnswer
+
+            result = await self.session.scalars(select(Question).filter(Question.quiz_id == quiz_id))
+            quiz_questions = result.all()
+
+            if len(quiz_questions) < 2:
+                logging.error("There should be at least 2 questions in the quiz")
+                raise LessThen2Questions
+
+            feedback = []
+
+            for index, (question, user_answer) in enumerate(zip(quiz_questions, quiz_data.answers)):
+                if user_answer.lower() == question.question_correct_answer.lower():
+                    feedback.append(f"Question {index + 1}: Correct!")
+                else:
+                    feedback.append(
+                        f"Question {index + 1}: Incorrect. Correct answer is "
+                        f"{question.question_correct_answer}"
+                    )
+
+            return feedback
+
+        except Exception as e:
+            logging.error(f"Error passing quiz with ID {quiz_id}: {e}")
+            raise ErrorPassQuiz(e)

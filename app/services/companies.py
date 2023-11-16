@@ -5,7 +5,7 @@ from app.db.models import Company, CompanyMembers, User
 from app.depends.exceptions import ErrorRetrievingList, ErrorRetrievingCompany, CompanyNotFound, \
     ErrorHiddenCompany, ErrorCreatingCompany, NotOwner, ErrorUpdatingCompany, ErrorDeletingCompany, \
     ErrorRetrievingMember, ErrorRemovingMember, OwnerLeave, ErrorLeavingCompany, NotMember, AlreadyExistsCompany, \
-    ErrorRetrievingAdmin, ErrorSettingRoleAdmin
+    ErrorRetrievingAdmin, ErrorSettingRoleAdmin, ErrorChangeOwnerAdminRole
 from app.schemas.company import CompanyBase, CompanyUpdate, CompanyMemberResponse, CompanyAdmin
 from app.services.users import UserService
 
@@ -27,7 +27,6 @@ class CompanyService:
             return [CompanyBase(**user.__dict__) for user in result.scalars().all()]
 
         except Exception as e:
-
             logging.error(f"Error retrieving company list: {e}")
             raise ErrorRetrievingList(e)
 
@@ -57,11 +56,16 @@ class CompanyService:
                             (select(self.model).filter(self.model.company_name == company_data.company_name)))
 
             if result.first():
+                logging.error("Company is already exist")
                 raise AlreadyExistsCompany
 
             company_data.owner_id = user_id
             new_company = self.model(**company_data.model_dump())
             self.session.add(new_company)
+            await self.session.commit()
+
+            company_member = CompanyMembers(company_id=new_company.company_id, user_id=user_id, is_admin=True)
+            self.session.add(company_member)
             await self.session.commit()
             logging.info(f"Company created: {new_company}")
             logging.info("Creating company processed successfully")
@@ -130,7 +134,6 @@ class CompanyService:
                 )
                 for row in rows
             ]
-
             return members_with_user_data
 
         except Exception as e:
@@ -141,12 +144,11 @@ class CompanyService:
         try:
             result = await self.session.execute(select(CompanyMembers).filter((CompanyMembers.user_id == user_id)))
             member = result.scalars().first()
+            return member
 
         except Exception as e:
             logging.error(f"Error retrieving member with ID {user_id}: {e}")
             raise ErrorRetrievingCompany(e)
-
-        return member
 
     async def remove_member(self, company_id: str, user_id: str, member_id: str):
         try:
@@ -155,6 +157,7 @@ class CompanyService:
             member = result.first()
 
             if not member:
+                logging.error("You are not the member of this company")
                 raise NotMember
 
             company = await self.get_by_id(company_id, user_id)
@@ -169,7 +172,6 @@ class CompanyService:
 
             await self.session.delete(member)
             await self.session.commit()
-
             return "User has been successfully removed from your company"
 
         except Exception as e:
@@ -192,7 +194,6 @@ class CompanyService:
 
             await self.session.delete(member)
             await self.session.commit()
-
             return f"You have left the company with ID {company_id}"
 
         except Exception as e:
@@ -226,16 +227,24 @@ class CompanyService:
 
     async def set_admin_status(self, admin_data: CompanyAdmin, user_id: str):
         try:
-            company = await self.get_by_id(admin_data.company_id, admin_data.user_id)
+            result = await self.session.scalars(select(self.model).filter(self.model.company_id == admin_data.company_id))
+            company = result.first()
 
             if company.owner_id != user_id:
+                logging.error("You are not the owner of this company")
                 raise NotOwner
+
+            if admin_data.user_id == company.owner_id:
+                logging.error("Error change admin role for owner")
+                raise ErrorChangeOwnerAdminRole
+
             member = await self.get_user_companies(admin_data.user_id)
             member.is_admin = admin_data.is_admin
             await self.session.commit()
             action = "set" if admin_data.is_admin else "removed from"
             return (f"User with ID {admin_data.user_id} has been {action} "
                     f"admin status for the company with ID {admin_data.company_id}")
+
         except Exception as e:
             logging.error(f"Error setting admin role for User: {e}")
             raise ErrorSettingRoleAdmin(e)

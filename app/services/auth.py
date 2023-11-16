@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.db import get_db
 from app.db.models import User
-from app.depends.exceptions import ErrorPasswordMatch, ErrorAuthentication, \
-    TokenExpired, ErrorRetrievingUser, InvalidCredentials, ErrorUpdateEmail, ErrorDeleteAnotherProfile, \
-    ErrorRetrievingToken, ErrorUpdatingUserProfile, ErrorDeletingUserProfile, ErrorRetrievingCurrentUser
+from app.depends.exceptions import ErrorPasswordMatch, ErrorAuthentication, TokenExpired, \
+    ErrorRetrievingUser, InvalidCredentials, ErrorUpdatingEmail, ErrorRetrievingToken, ErrorUpdatingUserProfile, \
+    ErrorDeletingUserProfile, ErrorRetrievingCurrentUser, ErrorDeletingAnotherProfile
 from app.schemas.auth import TokenPayload
 from app.schemas.user import UserBase
 from app.schemas.user import UserUpdate
@@ -138,11 +138,11 @@ class AuthService:
         try:
             if user.user_id != user_id:
                 self.logger.error("User attempted to update another user's profile, which is not allowed.")
-                raise ErrorUpdateEmail(status_code=403)
+                raise ErrorUpdatingEmail
 
             if user_data.user_email and user_data.user_email != user.user_email:
                 self.logger.error("User attempted to update their email, which is not allowed.")
-                raise ErrorUpdateEmail(status_code=400)
+                raise ErrorUpdatingEmail
 
             return await self.user_service.update(user_id, user_data)
 
@@ -154,7 +154,7 @@ class AuthService:
         try:
             if user.user_id != user_id:
                 self.logger.error("User attempted to delete another user's profile, which is not allowed.")
-                raise ErrorDeleteAnotherProfile()
+                raise ErrorDeletingAnotherProfile(e="")
 
             return await self.user_service.delete(user_id)
 
