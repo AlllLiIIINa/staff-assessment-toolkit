@@ -1,9 +1,12 @@
 import logging
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
+
 from app.core.config import Settings
 from app.db.db import get_db
+from app.depends.exceptions import CustomException
 from app.routers import health, user_routers, auth_routers, company_routers
 
 logging.basicConfig(
@@ -29,6 +32,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(CustomException)
+async def custom_exception_handler(request: Request, exc: CustomException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
 
 
 @app.on_event("startup")

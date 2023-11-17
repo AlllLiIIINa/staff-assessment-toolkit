@@ -2,10 +2,11 @@ import logging
 import secrets
 import string
 import bcrypt
-from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import User
+from app.depends.exceptions import UserNotFound, ErrorRetrievingUser, ErrorRetrievingList, AlreadyExistsUser, \
+    ErrorCreatingUser, ErrorUpdatingUser, ErrorDeletingUser
 from app.schemas.user import UserBase, UserUpdate
 from app.utils.security import Hasher
 
@@ -19,52 +20,49 @@ class UserService:
     async def get_all(self, page: int = 1, items_per_page: int = 10):
         try:
             offset = (page - 1) * items_per_page
-            query = select(self.model).offset(offset).limit(items_per_page)
-            result = await self.session.execute(query)
-
+            query = await self.session.scalars(select(self.model).offset(offset).limit(items_per_page))
             logging.info("Getting entity list processed successfully")
-            return [UserBase(**user.__dict__) for user in result.scalars().all()]
+            return [UserBase(**user.__dict__) for user in query.all()]
 
         except Exception as e:
-
             logging.error(f"Error retrieving entity list: {e}")
-            raise HTTPException(status_code=500, detail=f"Error retrieving entity list: {e}")
+            raise ErrorRetrievingList(e)
 
     async def get_by_id(self, user_id: str):
         try:
-            result = await self.session.execute(select(User).filter(User.user_id == user_id))
-            user = result.scalars().first()
+            result = await self.session.scalars(select(self.model).filter(self.model.user_id == user_id))
+            user = result.first()
+
+            if not user:
+                raise UserNotFound(user_id)
+
+            logging.info("Getting user processed successfully")
+            return user
+
         except Exception as e:
             logging.error(f"Error retrieving user with ID {user_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error retrieving user with ID {user_id}: {e}")
-
-        if not user:
-            raise HTTPException(status_code=404, detail=f"User with ID {user_id} not found")
-
-        logging.info("Getting user processed successfully")
-        return user
+            raise ErrorRetrievingUser(e)
 
     async def get_by_email(self, user_email: str):
         try:
-            result = await self.session.execute(select(User).filter(User.user_email == user_email))
-            user = result.scalars().first()
+            result = await self.session.scalars(select(User).filter(User.user_email == user_email))
+            user = result.first()
+            logging.info("Getting user processed successfully")
+            return user
 
         except Exception as e:
             logging.error(f"Error retrieving user with email {user_email}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error retrieving user with email {user_email}: {e} ")
-
-        if not user:
-            logging.error(f"Error retrieving user with email {user_email}")
-            return None
-
-        logging.info("Getting user processed successfully")
-        return user
+            raise ErrorRetrievingUser(e)
 
     async def create(self, user_data: UserBase):
         try:
+            result = await self.session.scalars(select(self.model).filter
+                                                (self.model.user_email == user_data.user_email))
+            if result.first():
+                raise AlreadyExistsUser
+
             if not user_data.user_hashed_password:
                 password = ''.join(secrets.choice(string.ascii_letters + string.digits) for i in range(8))
-
             else:
                 password = user_data.user_hashed_password
 
@@ -79,8 +77,8 @@ class UserService:
             return new_user
 
         except Exception as e:
-            logging.error(f"Error creating user: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error creating user: {e}")
+            logging.error(f"Error creating user: {e}")
+            raise ErrorCreatingUser(e)
 
     async def update(self, user_id: str, user_data: UserUpdate):
         try:
@@ -92,21 +90,19 @@ class UserService:
 
             logging.info(user_data)
             user_dict = user_data.model_dump(exclude_none=True)
-            query_user = update(self.model).where(self.model.user_id == user_id).values(user_dict).returning(self.model.user_id)
-            await self.session.execute(query_user)
+            await self.session.execute(update(self.model).where(self.model.user_id == user_id)
+                                       .values(user_dict).returning(self.model.user_id))
             await self.session.commit()
-
             logging.info(f"User update successful for user ID: {user_id}")
             return await self.get_by_id(user_id)
 
         except Exception as e:
             logging.error(f"Error during user update for user ID: {user_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error updating user: {e}")
+            raise ErrorUpdatingUser(e)
 
     async def delete(self, user_id: str):
-        user = await self.get_by_id(user_id)
-
         try:
+            user = await self.get_by_id(user_id)
             await self.session.delete(user)
             await self.session.commit()
             logging.info("Deleting user processed successfully")
@@ -114,4 +110,4 @@ class UserService:
 
         except Exception as e:
             logging.error(f"Error deleting user with ID {user_id}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error deleting user with ID {user_id}: {e}")
+            raise ErrorDeletingUser(e)
