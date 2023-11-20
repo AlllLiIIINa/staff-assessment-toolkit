@@ -1,11 +1,11 @@
 python-dotenv==1.0.0
 fastapi==0.103.1
 uvicorn==0.23.2
+httpx==0.25.1
 psycopg2-binary==2.9.7
 asyncpg==0.28.0
-SQLAlchemy==2.0.21
+SQLAlchemy==2.0.23
 sqlalchemy-utils==0.41.1
-databases==0.8.0
 alembic==1.12.0
 redis==5.0.0
 asyncio_redis==0.16.0
