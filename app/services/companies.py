@@ -10,6 +10,15 @@ from app.schemas.company import CompanyBase, CompanyUpdate, CompanyMemberRespons
 from app.services.users import UserService
 
 
+async def check_company_owner(company: Company, user_id: str):
+
+    if company.owner_id != user_id:
+        logging.error("You are not the owner of this company")
+        raise NotOwner()
+
+    return True
+
+
 class CompanyService:
     model = Company
 
@@ -27,7 +36,6 @@ class CompanyService:
             return [CompanyBase(**user.__dict__) for user in result.scalars().all()]
 
         except Exception as e:
-
             logging.error(f"Error retrieving company list: {e}")
             raise ErrorRetrievingList(e)
 
@@ -74,18 +82,13 @@ class CompanyService:
     async def update(self, company_id: str, company_data: CompanyUpdate, user_id: str):
         try:
             company = await self.get_by_id(company_id, user_id)
-
-            if company.owner_id != user_id:
-                logging.error("You are not the owner of this company")
-                raise NotOwner
-
+            await check_company_owner(company, user_id)
             logging.info(company_data)
             company_dict = company_data.model_dump(exclude_none=True)
             query_company = (update(self.model).where(self.model.company_id == company_id)
                              .values(company_dict).returning(self.model.company_id))
             await self.session.execute(query_company)
             await self.session.commit()
-
             logging.info(f"Company update successful for company ID: {company_id}")
             return await self.get_by_id(company_id, user_id)
 
@@ -159,11 +162,7 @@ class CompanyService:
             if not member:
                 raise NotMember
 
-            company = await self.get_by_id(company_id, user_id)
-
-            if company.owner_id != user_id:
-                logging.error("You are not the owner of this company")
-                raise NotOwner
+            await self.get_by_id(company_id, user_id)
 
             if user_id == member_id:
                 logging.error("Owner cannot remove yourself from the company")
@@ -200,21 +199,23 @@ class CompanyService:
     async def get_admins(self, company_id: str, page: int = 1, admin_per_page: int = 10):
         try:
             offset = (page - 1) * admin_per_page
-            result = await self.session.execute(
-                select(CompanyMembers).filter(
+            query = (
+                select(CompanyMembers, User)
+                .join(User, CompanyMembers.user_id == User.user_id)
+                .filter(
                     (CompanyMembers.company_id == company_id) &
                     (CompanyMembers.is_admin == True)
-                ).offset(offset).limit(admin_per_page)
+                )
+                .offset(offset)
+                .limit(admin_per_page)
             )
-            admins = result.scalars().all()
-            user_ids = [admin.user_id for admin in admins]
+            result = await self.session.execute(query)
             admins_with_user_data = []
 
-            for user_id in user_ids:
-                user = await self.user_service.get_by_id(user_id)
-                if user:
-                    admin_data = {**user.__dict__}
-                    admins_with_user_data.append(admin_data)
+            for record in result:
+                company_member, user = record
+                admin_data = {**user.__dict__}
+                admins_with_user_data.append(admin_data)
 
             return admins_with_user_data
 
@@ -224,16 +225,14 @@ class CompanyService:
 
     async def set_admin_status(self, admin_data: CompanyAdmin, user_id: str):
         try:
-            company = await self.get_by_id(admin_data.company_id, admin_data.user_id)
-
-            if company.owner_id != user_id:
-                raise NotOwner
+            await self.get_by_id(admin_data.company_id, user_id)
             member = await self.get_user_companies(admin_data.user_id)
             member.is_admin = admin_data.is_admin
             await self.session.commit()
             action = "set" if admin_data.is_admin else "removed from"
-            return (f"User with ID {admin_data.user_id} has been {action} "
+            return (f"User with ID {admin_data.user_id} has been {action}"
                     f"admin status for the company with ID {admin_data.company_id}")
+
         except Exception as e:
             logging.error(f"Error setting admin role for User: {e}")
             raise ErrorSettingRoleAdmin(e)

@@ -63,6 +63,7 @@ class UserService:
 
             if not user_data.user_hashed_password:
                 password = ''.join(secrets.choice(string.ascii_letters + string.digits) for i in range(8))
+
             else:
                 password = user_data.user_hashed_password
 
