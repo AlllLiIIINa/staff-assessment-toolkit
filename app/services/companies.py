@@ -72,7 +72,6 @@ class CompanyService:
             new_company = self.model(**company_data.model_dump())
             self.session.add(new_company)
             await self.session.commit()
-
             company_member = CompanyMembers(company_id=new_company.company_id, user_id=user_id, is_admin=True)
             self.session.add(company_member)
             await self.session.commit()
@@ -104,6 +103,7 @@ class CompanyService:
     async def delete(self, company_id: str, user_id: str):
         try:
             company = await self.get_by_id(company_id, user_id)
+            await check_company_owner(company, user_id)
 
             if company.owner_id != user_id:
                 logging.error("You are not the owner of this company")
@@ -229,10 +229,8 @@ class CompanyService:
 
     async def set_admin_status(self, admin_data: CompanyAdmin, user_id: str):
         try:
-            result = await self.session.scalars(select(self.model).filter(self.model.company_id == admin_data.company_id))
-            company = result.first()
-
-            await self.get_by_id(company.company_id, user_id)
+            company = await self.get_by_id(admin_data.company_id, admin_data.user_id)
+            await check_company_owner(company, user_id)
 
             if admin_data.user_id == company.owner_id:
                 logging.error("Error change admin role for owner")
