@@ -34,14 +34,13 @@ class AuthService:
                 logging.error(f"Error retrieving user with email {user_email}")
                 return None
 
-            else:
-                if not await Hasher.verify_password(user_hashed_password, user.user_hashed_password):
-                    logging.error(
-                        f"Error password match. Entered password: {user_hashed_password}, "
-                        f"password in the database: {User.user_hashed_password}")
-                    raise ErrorPasswordMatch()
+            if not await Hasher.verify_password(user_hashed_password, user.user_hashed_password):
+                logging.error(
+                    f"Error password match. Entered password: {user_hashed_password}, "
+                    f"password in the database: {User.user_hashed_password}")
+                raise ErrorPasswordMatch()
 
-                return user
+            return user
 
         except Exception as e:
             logging.error(f"Error user authentication: {e}")
@@ -63,6 +62,7 @@ class AuthService:
                         expires_delta=access_token_expires, algorithm=Settings.ALGORITHM_AUTH0
                     )
                     return access_token
+
                 return {"access_token": user, "token_type": "bearer"}
 
             else:
@@ -94,7 +94,7 @@ class AuthService:
                 if not user_id:
                     logging.error("Invalid user_id in the token")
 
-            except(jwt.JWTError, ValidationError) as e:
+            except (jwt.JWTError, ValidationError) as e:
                 logging.error(f"Error decoding/validating token: {e}")
 
                 try:
@@ -113,6 +113,7 @@ class AuthService:
                 except JWTError as e:
                     logging.error(e)
                     raise InvalidCredentials
+
                 user = await user_service.get_by_email(email)
 
                 if user is None and payload['scope'] == 'openid profile email':
@@ -127,7 +128,6 @@ class AuthService:
             if not user:
                 logging.error("Could not find user")
                 raise ErrorRetrievingUser(e=token_data.user_id)
-
             return user
 
         except Exception as e:
