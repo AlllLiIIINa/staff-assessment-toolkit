@@ -5,7 +5,7 @@ from app.db.models import Company, CompanyMembers, User
 from app.depends.exceptions import ErrorRetrievingList, ErrorRetrievingCompany, CompanyNotFound, \
     ErrorHiddenCompany, ErrorCreatingCompany, NotOwner, ErrorUpdatingCompany, ErrorDeletingCompany, \
     ErrorRetrievingMember, ErrorRemovingMember, OwnerLeave, ErrorLeavingCompany, NotMember, AlreadyExistsCompany, \
-    ErrorRetrievingAdmin, ErrorSettingRoleAdmin
+    ErrorRetrievingAdmin, ErrorSettingRoleAdmin, ErrorChangeOwnerAdminRole
 from app.schemas.company import CompanyBase, CompanyUpdate, CompanyMemberResponse, CompanyAdmin
 from app.services.users import UserService
 
@@ -71,6 +71,9 @@ class CompanyService:
             new_company = self.model(**company_data.model_dump())
             self.session.add(new_company)
             await self.session.commit()
+            company_member = CompanyMembers(company_id=new_company.company_id, user_id=user_id, is_admin=True)
+            self.session.add(company_member)
+            await self.session.commit()
             logging.info(f"Company created: {new_company}")
             logging.info("Creating company processed successfully")
             return new_company
@@ -99,6 +102,7 @@ class CompanyService:
     async def delete(self, company_id: str, user_id: str):
         try:
             company = await self.get_by_id(company_id, user_id)
+            await check_company_owner(company, user_id)
 
             if company.owner_id != user_id:
                 logging.error("You are not the owner of this company")
@@ -133,7 +137,6 @@ class CompanyService:
                 )
                 for row in rows
             ]
-
             return members_with_user_data
 
         except Exception as e:
@@ -226,6 +229,13 @@ class CompanyService:
     async def set_admin_status(self, admin_data: CompanyAdmin, user_id: str):
         try:
             await self.get_by_id(admin_data.company_id, user_id)
+            company = await self.get_by_id(admin_data.company_id, admin_data.user_id)
+            await check_company_owner(company, user_id)
+
+            if admin_data.user_id == company.owner_id:
+                logging.error("Error change admin role for owner")
+                raise ErrorChangeOwnerAdminRole
+
             member = await self.get_user_companies(admin_data.user_id)
             member.is_admin = admin_data.is_admin
             await self.session.commit()

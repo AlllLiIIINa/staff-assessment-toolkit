@@ -298,3 +298,8 @@ class NoPermission(CustomException):
 class ErrorHandleInvitation(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(status_code=500, detail=f"Error during handle the invitation for company: {e}", **kwargs)
+
+
+class ErrorChangeOwnerAdminRole(CustomException):
+    def __init__(self, **kwargs):
+        super().__init__(status_code=400, detail="Error change admin role for owner", **kwargs)
