@@ -95,6 +95,11 @@ class ErrorRetrievingInvitation(ErrorRetrieving):
         super().__init__(object_type="invitations for User", e=e)
 
 
+class ErrorRetrievingAdmin(ErrorRetrieving):
+    def __init__(self, e):
+        super().__init__(object_type="admins for company", e=e)
+
+
 class AlreadyExists(CustomException):
     def __init__(self, **kwargs):
         super().__init__(status_code=409, detail="{object_type} already exists.", **kwargs)
@@ -215,6 +220,16 @@ class InvalidAction(Invalid):
         super().__init__(object_type="Action", details="use 'accept' or 'reject")
 
 
+class ErrorSettingRole(CustomException):
+    def __init__(self, **kwargs):
+        super().__init__(status_code=500, detail="Error setting {object_type} role for User: {e}", **kwargs)
+
+
+class ErrorSettingRoleAdmin(ErrorSettingRole):
+    def __init__(self, e):
+        super().__init__(object_type="Admin", e=e)
+
+
 class ErrorPasswordMatch(CustomException):
     def __init__(self, **kwargs):
         super().__init__(status_code=401, detail="Error password match.", **kwargs)
@@ -283,3 +298,8 @@ class NoPermission(CustomException):
 class ErrorHandleInvitation(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(status_code=500, detail=f"Error during handle the invitation for company: {e}", **kwargs)
+
+
+class ErrorChangeOwnerAdminRole(CustomException):
+    def __init__(self, **kwargs):
+        super().__init__(status_code=400, detail="Error change admin role for owner", **kwargs)
