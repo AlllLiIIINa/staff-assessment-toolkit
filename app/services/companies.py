@@ -14,7 +14,7 @@ async def check_company_owner(company: Company, user_id: str):
 
     if company.owner_id != user_id:
         logging.error("You are not the owner of this company")
-        raise NotOwner()
+        raise NotOwner
 
     return True
 
@@ -71,7 +71,6 @@ class CompanyService:
             company_data.owner_id = user_id
             new_company = self.model(**company_data.model_dump())
             self.session.add(new_company)
-            await self.session.commit()
             company_member = CompanyMembers(company_id=new_company.company_id, user_id=user_id, is_admin=True)
             self.session.add(company_member)
             await self.session.commit()

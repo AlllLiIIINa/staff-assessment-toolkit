@@ -43,7 +43,7 @@ async def quiz_delete(quiz_id: str, user: User = Depends(AuthService.get_current
     return await quiz_service.delete(quiz_id, user.user_id)
 
 
-@quiz_router.get("/questions", operation_id="get_questions", )
+@quiz_router.get("/questions/", operation_id="get_questions", )
 async def question_list(company_id: str, user: User = Depends(AuthService.get_current_user),
                         page: int = Query(default=1, description="Page number", ge=1),
                         question_per_page: int = Query(default=10, description="Items per page", le=100),

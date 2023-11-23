@@ -8,6 +8,18 @@ from app.schemas.quiz import QuestionBase, QuestionUpdate
 from app.services.companies import CompanyService
 
 
+async def check_company_owner_or_admin(session: AsyncSession, user_id: str, company_id: str):
+    result = await session.scalars(select(CompanyMembers).filter(
+        CompanyMembers.user_id == user_id, CompanyMembers.company_id == company_id,
+        CompanyMembers.is_admin == True))
+
+    if not result:
+        logging.error("You are not the owner or admin of this company")
+        raise NotOwnerOrAdmin
+
+    return True
+
+
 class QuestionService:
     model = Question
 
@@ -17,14 +29,7 @@ class QuestionService:
 
     async def get_all(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10):
         try:
-            result = await self.session.scalars(select(CompanyMembers).filter
-                                                (CompanyMembers.company_id == company_id,
-                                                 CompanyMembers.user_id == user_id, CompanyMembers.is_admin == True))
-
-            if not result.first():
-                logging.error("You are not the owner or admin of this company")
-                raise NotOwnerOrAdmin
-
+            await check_company_owner_or_admin(self.session, company_id, user_id)
             offset = (page - 1) * items_per_page
             questions = await self.session.scalars(select(self.model).filter(Company.company_id == company_id)
                                                    .offset(offset).limit(items_per_page))
@@ -37,22 +42,6 @@ class QuestionService:
 
     async def get_by_id(self, question_id: str, user_id: str):
         try:
-            query = await self.session.scalars(
-                select(self.model)
-                .join(Quiz, self.model.quiz_id == Quiz.quiz_id)
-                .join(Company, Quiz.company_id == Company.company_id)
-                .join(
-                    CompanyMembers,
-                    (CompanyMembers.company_id == Company.company_id)
-                    & (CompanyMembers.user_id == user_id)
-                    & (CompanyMembers.is_admin == True),
-                )
-            )
-
-            if not query.first():
-                logging.error("You are not the owner or admin of this company")
-                raise NotOwnerOrAdmin
-
             result = await self.session.scalars(select(self.model).filter(self.model.question_id == question_id))
             question = result.first()
 
@@ -60,6 +49,7 @@ class QuestionService:
                 logging.error(f"Quiz with ID {question_id} not found")
                 raise QuestionNotFound(question_id)
 
+            await check_company_owner_or_admin(self.session, question.question_company_id, user_id)
             logging.info("Getting quiz processed successfully")
             return question
 
@@ -71,16 +61,9 @@ class QuestionService:
         try:
             quiz_company_id = await self.session.scalar(select(Quiz.company_id)
                                                         .filter(Quiz.quiz_id == question_data.quiz_id))
-            result = await self.session.scalars(select(CompanyMembers).filter
-                                                (CompanyMembers.company_id == quiz_company_id,
-                                                 CompanyMembers.user_id == user_id, CompanyMembers.is_admin == True))
-
-            if not result.first():
-                logging.error("You are not the owner or admin of this company")
-                raise NotOwnerOrAdmin
-
-            exist_question = await (self.session.scalars(select(self.model).filter(
-                self.model.question_text == question_data.question_text)))
+            await check_company_owner_or_admin(self.session, quiz_company_id, user_id)
+            exist_question = await self.session.scalars(select(self.model).filter(
+                self.model.question_text == question_data.question_text))
 
             if exist_question.first():
                 logging.error("Question already exist")
@@ -91,11 +74,20 @@ class QuestionService:
                 raise LessThen2Answers
 
             question_data.question_created_by = user_id
+            question_data.question_company_id = quiz_company_id
             new_question = self.model(**question_data.model_dump())
             self.session.add(new_question)
             await self.session.commit()
             logging.info(f"Question created: {new_question}")
             logging.info("Creating question processed successfully")
+            quiz_question_count = await self.session.scalar(
+                select(Question).filter(Question.quiz_id == question_data.quiz_id).count())
+
+            if quiz_question_count == 0:
+                comment = "Do not forget to add a second question, the quiz must have at least 2 questions"
+                logging.warning(comment)
+                return new_question, comment
+
             return new_question
 
         except Exception as e:
@@ -104,29 +96,16 @@ class QuestionService:
 
     async def update(self, question_id: str, question_data: QuestionUpdate, user_id: str):
         try:
-            query = await self.session.scalars(
-                select(self.model)
-                .join(Quiz, self.model.quiz_id == Quiz.quiz_id)
-                .join(Company, Quiz.company_id == Company.company_id)
-                .join(
-                    CompanyMembers,
-                    (CompanyMembers.company_id == Company.company_id)
-                    & (CompanyMembers.user_id == user_id)
-                    & (CompanyMembers.is_admin == True),
-                )
-            )
-
-            if not query.first():
-                logging.error("You are not the owner or admin of this company")
-                raise NotOwnerOrAdmin
-
+            result = await (self.session.scalars(
+                select(self.model).filter(self.model.question_id == question_id)))
+            question = result.first()
+            await check_company_owner_or_admin(self.session, question.question_company_id, user_id)
             question_data.question_updated_by = user_id
             logging.info(question_data)
             question_dict = question_data.model_dump(exclude_none=True)
             await self.session.execute(update(self.model).where(self.model.question_id == question_id)
                                        .values(question_dict).returning(self.model.question_id))
             await self.session.commit()
-
             logging.info(f"Company update successful for question ID: {question_id}")
             return await self.get_by_id(question_id, user_id)
 
@@ -136,23 +115,10 @@ class QuestionService:
 
     async def delete(self, question_id: str, user_id: str):
         try:
-            query = await self.session.scalars(
-                select(self.model)
-                .join(Quiz, self.model.quiz_id == Quiz.quiz_id)
-                .join(Company, Quiz.company_id == Company.company_id)
-                .join(
-                    CompanyMembers,
-                    (CompanyMembers.company_id == Company.company_id)
-                    & (CompanyMembers.user_id == user_id)
-                    & (CompanyMembers.is_admin == True),
-                )
-            )
-
-            if not query.first():
-                logging.error("You are not the owner or admin of this company")
-                raise NotOwnerOrAdmin
-
-            question = await self.get_by_id(question_id, user_id)
+            result = await self.session.scalars(
+                select(self.model).filter(self.model.question_id == question_id))
+            question = result.first()
+            await check_company_owner_or_admin(self.session, question.question_company_id, user_id)
             await self.session.delete(question)
             await self.session.commit()
             logging.info("Deleting quiz processed successfully")

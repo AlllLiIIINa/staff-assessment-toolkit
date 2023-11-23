@@ -1,8 +1,8 @@
 """add_quiz_question_tables
 
-Revision ID: b732383860cf
+Revision ID: dfceacb7f91f
 Revises: e9c54e9a242b
-Create Date: 2023-11-13 12:55:09.486340
+Create Date: 2023-11-22 15:06:16.651700
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'b732383860cf'
+revision: str = 'dfceacb7f91f'
 down_revision: Union[str, None] = 'e9c54e9a242b'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

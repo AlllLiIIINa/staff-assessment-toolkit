@@ -127,7 +127,7 @@ class Question(Base):
     question_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     question_text = Column(String, default=None)
     question_answers = Column(ARRAY(String), default=None)
-    question_correct_answer = Column(String, default=None)
+    question_correct_answer = Column(ARRAY(String), default=None)
     quiz_id = Column(UUID(as_uuid=True), ForeignKey('quizzes.quiz_id'))
     quiz = relationship("Quiz", back_populates="question")
     question_company_id = Column(UUID(as_uuid=True), ForeignKey('companies.company_id'))

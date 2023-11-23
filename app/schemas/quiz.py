@@ -1,8 +1,7 @@
 import datetime
 from typing import Optional, List
 from uuid import UUID, uuid4
-
-from pydantic import BaseModel, Field, ConfigDict, validator, field_validator
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class QuestionBase(BaseModel):
@@ -10,11 +9,11 @@ class QuestionBase(BaseModel):
                               title="ID")
     question_text: str = Field(None, title="Text")
     question_answers: List[str] = Field(None, title="Answers")
-    question_correct_answer: str = Field(None, title="Text")
+    question_correct_answer: List[str] = Field(None, title="Correct Answer")
     quiz_id: UUID = Field(default=None, title="Quiz id")
     question_company_id: UUID = Field(default=None, title="QuestionCompany id")
     question_created_by: UUID = Field(default=None, title="Created by")
-    question_updated_by: UUID = Field(default=None, title="Created by")
+    question_updated_by: Optional[UUID] = Field(default=None, title="Created by")
     question_created_at: datetime.datetime = Field(None, title="Created")
     question_updated_at: datetime.datetime = Field(None, title="Updated")
 
@@ -25,7 +24,7 @@ class QuestionBase(BaseModel):
                 "quiz_id": "",
                 "question_text": "1. Do you like your company?",
                 "question_answers": ["Yes", "No", "May be"],
-                "question_correct_answer": "Yes",
+                "question_correct_answer": ["Yes; No"]
             }
         }
     )
@@ -55,7 +54,6 @@ class QuizBase(BaseModel):
     quiz_title: Optional[str] = Field(None, title="Title")
     quiz_description: Optional[str] = Field(None, title="Description")
     quiz_frequency: Optional[int] = Field(None, title="Frequency")
-    questions: List[QuestionBase] = Field(default=None, title="Questions")
     company_id: UUID = Field(default=None, title="QuizCompany id")
     quiz_created_by: UUID = Field(default=None, title="Created by")
     quiz_updated_by: Optional[UUID] = Field(default=None, title="Updated by")
@@ -100,12 +98,10 @@ class QuizPass(BaseModel):
         from_attributes=True,
         json_schema_extra={
             "example": {
-                {
                     "answers": [
                         "yes",
-                        "{Yes,No}"
+                        "yes; no"
                     ]
-                }
             }
         }
     )
