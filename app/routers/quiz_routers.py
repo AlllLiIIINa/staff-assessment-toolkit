@@ -1,7 +1,6 @@
 from http import HTTPStatus
-from typing import List
 from fastapi import APIRouter, Depends, Query
-from app.db.models import User, Question
+from app.db.models import User
 from app.depends.depends import get_quiz_service, get_question_service
 from app.schemas.quiz import QuizBase, QuizUpdate, QuestionUpdate, QuestionBase, QuizPass
 from app.services.auth import AuthService
