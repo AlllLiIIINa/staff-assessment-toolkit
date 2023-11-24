@@ -1,10 +1,11 @@
 import logging
+from datetime import datetime
 from sqlalchemy import update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Quiz, CompanyMembers, Question
 from app.depends.exceptions import ErrorRetrievingList, AlreadyExistsQuiz, NotOwnerOrAdmin, ErrorCreatingQuiz, \
     QuizNotFound, ErrorRetrievingQuiz, NotMember, ErrorUpdatingQuiz, ErrorDeletingQuiz, ErrorPassQuiz, EmptyAnswer, \
-    LessThen2Questions
+    LessThen2Questions, QuizNotAvailable
 from app.schemas.quiz import QuizBase, QuizUpdate, QuizPass
 
 
@@ -131,6 +132,16 @@ class QuizService:
                 raise LessThen2Questions
 
             feedback = []
+            quiz = await self.get_by_id(quiz_id, user_id)
+
+            if quiz.quiz_frequency is not None:
+                quiz_start_time = datetime.now()
+                logging.info(f"Current time: {quiz_start_time}")
+                logging.info(f"Quiz frequency: {quiz.quiz_frequency}")
+
+                if quiz_start_time > quiz.quiz_frequency:
+                    logging.error("Quiz is not available at the moment")
+                    raise QuizNotAvailable
 
             for index, (question, user_answer) in enumerate(zip(quiz_questions, quiz_data.answers)):
                 correct_answers = [answer.lower() for answer in question.question_correct_answer]

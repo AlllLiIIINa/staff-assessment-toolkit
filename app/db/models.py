@@ -99,7 +99,7 @@ class Quiz(Base):
     quiz_name = Column(String, default=None)
     quiz_title = Column(String, default=None)
     quiz_description = Column(String, default=None)
-    quiz_frequency = Column(Integer, default=None)
+    quiz_frequency = Column(DateTime, default=None)
     company_id = Column(UUID(as_uuid=True), ForeignKey('companies.company_id'))
     company = relationship("Company", back_populates="quiz")
     question = relationship("Question", back_populates="quiz", cascade="all, delete-orphan")

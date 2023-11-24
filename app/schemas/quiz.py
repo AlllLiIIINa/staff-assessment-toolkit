@@ -53,7 +53,7 @@ class QuizBase(BaseModel):
     quiz_name: str = Field(None, title="Name")
     quiz_title: Optional[str] = Field(None, title="Title")
     quiz_description: Optional[str] = Field(None, title="Description")
-    quiz_frequency: Optional[int] = Field(None, title="Frequency")
+    quiz_frequency: Optional[datetime.datetime] = Field(None, title="Frequency")
     company_id: UUID = Field(default=None, title="QuizCompany id")
     quiz_created_by: UUID = Field(default=None, title="Created by")
     quiz_updated_by: Optional[UUID] = Field(default=None, title="Updated by")
@@ -67,7 +67,8 @@ class QuizBase(BaseModel):
                 "company_id": "",
                 "quiz_name": "Quiz Name",
                 "quiz_title": "Quiz Title",
-                "quiz_description": "Quiz Description"
+                "quiz_description": "Quiz Description",
+                "quiz_frequency": "2023-11-24T13:00:00"
             }
         }
     )
@@ -77,6 +78,7 @@ class QuizUpdate(BaseModel):
     quiz_name: Optional[str] = None
     quiz_title: Optional[str] = None
     quiz_description: Optional[str] = None
+    quiz_frequency: Optional[datetime.datetime] = None
     quiz_updated_by: Optional[UUID] = None
 
     model_config = ConfigDict(
@@ -85,7 +87,8 @@ class QuizUpdate(BaseModel):
             "example": {
                 "quiz_name": "",
                 "quiz_title": "",
-                "quiz_description": ""
+                "quiz_description": "",
+                "quiz_frequency": ""
             }
         }
     )

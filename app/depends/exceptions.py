@@ -393,3 +393,8 @@ class LessThen2Questions(CustomException):
 class LessThen2Answers(CustomException):
     def __init__(self, **kwargs):
         super().__init__(status_code=422, detail="There should be at least 2 answers for question", **kwargs)
+
+
+class QuizNotAvailable(CustomException):
+    def __init__(self, **kwargs):
+        super().__init__(status_code=422, detail="Quiz is not available", **kwargs)

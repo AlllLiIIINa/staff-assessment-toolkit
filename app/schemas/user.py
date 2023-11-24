@@ -36,7 +36,7 @@ class UserBase(BaseModel):
         json_schema_extra={
             "example": {
                 "user_email": "user@gmail.com",
-                "user_hashed_password": "PassWord123",
+                "user_hashed_password": "password",
                 "user_firstname": "David",
                 "user_lastname": "White",
             }
