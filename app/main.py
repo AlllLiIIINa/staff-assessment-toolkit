@@ -3,7 +3,6 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
-
 from app.core.config import Settings
 from app.db.db import get_db
 from app.depends.exceptions import CustomException
