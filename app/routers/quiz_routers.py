@@ -85,3 +85,21 @@ async def quiz_questions(quiz_id: str, user: User = Depends(AuthService.get_curr
 async def quiz_pass(quiz_id: str, quiz_data: QuizPass, user: User = Depends(AuthService.get_current_user),
                     quiz_service: QuizService = Depends(get_quiz_service)):
     return await quiz_service.quiz_pass(quiz_id, quiz_data, user.user_id)
+
+
+@quiz_router.get("/score/company", operation_id="user_quiz_score_company")
+async def user_score_company(company_id: str, user_id: str, user: User = Depends(AuthService.get_current_user),
+                             quiz_service: QuizService = Depends(get_quiz_service)):
+    return await quiz_service.user_score_company(company_id, user_id, user.user_id)
+
+
+@quiz_router.get("/score/companies", operation_id="user_quiz_score_companies")
+async def user_score_companies(user_id: str, user: User = Depends(AuthService.get_current_user),
+                               quiz_service: QuizService = Depends(get_quiz_service)):
+    return await quiz_service.user_score_companies(user_id, user.user_id)
+
+
+@quiz_router.get("/score/rating", operation_id="user_quiz_rating")
+async def user_rating(quiz_service: QuizService = Depends(get_quiz_service)):
+    return await quiz_service.score_all_users()
+

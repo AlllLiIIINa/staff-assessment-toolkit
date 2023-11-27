@@ -315,6 +315,16 @@ class NotOwnerOrAdmin(Not):
         super().__init__(object_type="Owner or Admin")
 
 
+class NotOwnerOrAdminOrSelf(Not):
+    def __init__(self):
+        super().__init__(object_type="Owner or Admin or Self")
+
+
+class NotSelf(Not):
+    def __init__(self):
+        super().__init__(object_type="Self")
+
+
 class ErrorPasswordMatch(CustomException):
     def __init__(self, **kwargs):
         super().__init__(status_code=401, detail="Error password match.", **kwargs)
@@ -398,3 +408,21 @@ class LessThen2Answers(CustomException):
 class QuizNotAvailable(CustomException):
     def __init__(self, **kwargs):
         super().__init__(status_code=422, detail="Quiz is not available", **kwargs)
+
+
+class ErrorUserScoreCompany(CustomException):
+    def __init__(self, company_id, e, **kwargs):
+        super().__init__(status_code=500, detail=f"fError retrieving average scores for user in company with ID "
+                                                 f"{company_id}: {e}", **kwargs)
+
+
+class ErrorUserScoreCompanies(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(status_code=500, detail=f"Error retrieving average scores for user in companies: {e}",
+                         **kwargs)
+
+
+class ErrorUsersScoreCompanies(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(status_code=500, detail=f"Error retrieving average scores for all users in companies: {e}",
+                         **kwargs)
