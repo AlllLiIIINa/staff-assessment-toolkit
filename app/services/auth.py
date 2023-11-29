@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.db import get_db
 from app.db.models import User
-from app.depends.exceptions import ErrorPasswordMatch, ErrorAuthentication, \
-    TokenExpired, ErrorRetrievingUser, InvalidCredentials, ErrorUpdateEmail, ErrorDeleteAnotherProfile, \
-    ErrorRetrievingToken, ErrorUpdatingUserProfile, ErrorDeletingUserProfile, ErrorRetrievingCurrentUser
+from app.depends.exceptions import ErrorPasswordMatch, ErrorAuthentication, TokenExpired, \
+    ErrorRetrievingUser, InvalidCredentials, ErrorUpdatingEmail, ErrorRetrievingToken, ErrorUpdatingUserProfile, \
+    ErrorDeletingUserProfile, ErrorRetrievingCurrentUser, ErrorDeletingAnotherProfile
 from app.schemas.auth import TokenPayload
 from app.schemas.user import UserBase
 from app.schemas.user import UserUpdate
@@ -46,7 +46,7 @@ class AuthService:
             logging.error(f"Error user authentication: {e}")
             raise ErrorAuthentication(e)
 
-    async def get_user_token(self, form_data: OAuth2PasswordRequestForm):
+    async def get_user_token(self, form_data: OAuth2PasswordRequestForm) -> Union[str, dict]:
         try:
             user = await self.user_auth(form_data.username, form_data.password)
 
@@ -134,15 +134,15 @@ class AuthService:
             logging.error(f"Error getting current user: {e}")
             raise ErrorRetrievingCurrentUser(e)
 
-    async def update_profile(self, user: User, user_id: str, user_data: UserUpdate):
+    async def update_profile(self, user: User, user_id: str, user_data: UserUpdate) -> User:
         try:
             if user.user_id != user_id:
                 self.logger.error("User attempted to update another user's profile, which is not allowed.")
-                raise ErrorUpdateEmail(status_code=403)
+                raise ErrorUpdatingEmail
 
             if user_data.user_email and user_data.user_email != user.user_email:
                 self.logger.error("User attempted to update their email, which is not allowed.")
-                raise ErrorUpdateEmail(status_code=400)
+                raise ErrorUpdatingEmail
 
             return await self.user_service.update(user_id, user_data)
 
@@ -150,11 +150,11 @@ class AuthService:
             logging.error(f"Error updating User profile. {e}")
             raise ErrorUpdatingUserProfile(e)
 
-    async def delete_profile(self, user, user_id: str):
+    async def delete_profile(self, user, user_id: str) -> User:
         try:
             if user.user_id != user_id:
                 self.logger.error("User attempted to delete another user's profile, which is not allowed.")
-                raise ErrorDeleteAnotherProfile()
+                raise ErrorDeletingAnotherProfile(e="")
 
             return await self.user_service.delete(user_id)
 
