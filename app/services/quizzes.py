@@ -197,7 +197,7 @@ class QuizService:
             logging.error(f"Error passing quiz with ID {quiz_id}: {e}")
             raise ErrorPassQuiz(e)
 
-    async def user_score_company(self, company_id: str, user_id: str, user: str):
+    async def user_score_company(self, company_id: str, user_id: str, user: str) -> str:
         try:
             if str(user) != user_id or await check_company_owner_or_admin(self.session, str(user), company_id) != True:
                 logging.error("You are not the owner or admin of this company")
@@ -210,16 +210,16 @@ class QuizService:
                 .group_by(Result.result_quiz_id)
             )
             average_scores = query.all()
-            result = round(sum(average_scores) / len(average_scores), 1) if average_scores else None
+            result = round(sum(average_scores) / len(average_scores), 2) if average_scores else None
             return f"Your score in company with ID {company_id}: {result}"
 
         except Exception as e:
             logging.error(f"Error retrieving average scores for user in company with ID {company_id}: {e}")
             raise ErrorUserScoreCompany(company_id, e)
 
-    async def user_score_companies(self, user_id: str, user: str):
+    async def user_score_companies(self, user_id: str, user: str) -> str:
         try:
-            if user != user_id:
+            if str(user) != user_id:
                 logging.error("You are not the owner or admin of this company")
                 raise NotSelf
 
@@ -231,14 +231,14 @@ class QuizService:
             )
 
             average_scores = query.all()
-            result = round(sum(average_scores) / len(average_scores), 1) if average_scores else None
+            result = round(sum(average_scores) / len(average_scores), 2) if average_scores else None
             return f"Your average score across all companies: {result}"
 
         except Exception as e:
             logging.error(f"Error retrieving average scores for user in companies: {e}")
             raise ErrorUserScoreCompanies(e)
 
-    async def score_all_users(self):
+    async def score_all_users(self) -> str:
         try:
             result = await self.session.execute(
                 select(
@@ -247,7 +247,7 @@ class QuizService:
                     func.sum(Result.result_total_count).label('total_question_count'),
                     func.avg(Result.result_right_count / Result.result_total_count).label('average_score')
                 )
-                .group_by(Result.result_user_id, Result.result_company_id)
+                .group_by(Result.result_user_id)
                 .order_by(desc(text('average_score')))
             )
 
@@ -258,12 +258,12 @@ class QuizService:
                 total_right_count = user.total_right_count or 0
                 total_question_count = user.total_question_count or 0
 
-                average_score = round(total_right_count / total_question_count, 3) if total_question_count > 0 else 0
+                average_score = round(total_right_count / total_question_count, 2) if total_question_count > 0 else 0
                 formatted_scores.append(f"{user.result_user_id}: {average_score}")
 
-            result = ", ".join(formatted_scores) if formatted_scores else None
-            return f"Average scores for all users in companies: {result}"
+            result_str = ", ".join(formatted_scores) if formatted_scores else None
+            return f"Average scores for all users: {result_str}"
 
         except Exception as e:
-            logging.error(f"Error retrieving average scores for all users in companies: {e}")
+            logging.error(f"Error retrieving average scores for all users: {e}")
             raise ErrorUsersScoreCompanies(e)

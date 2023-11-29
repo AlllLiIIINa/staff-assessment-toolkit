@@ -148,7 +148,6 @@ class Question(Base):
 
 class Result(Base):
     __tablename__: str = "results"
-    __bind_key__ = "internship_db"
 
     result_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     result_user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id'), default=uuid.uuid4)
