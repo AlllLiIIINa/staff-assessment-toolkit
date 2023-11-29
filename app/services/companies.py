@@ -1,4 +1,6 @@
 import logging
+from typing import List, Dict
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Company, CompanyMembers, User
@@ -26,7 +28,7 @@ class CompanyService:
         self.session = session
         self.user_service = UserService(self.session)
 
-    async def get_all(self, page: int = 1, items_per_page: int = 10):
+    async def get_all(self, page: int = 1, items_per_page: int = 10) -> List[CompanyBase]:
         try:
             offset = (page - 1) * items_per_page
             query = (select(self.model).filter(self.model.company_is_visible == True).
@@ -39,7 +41,7 @@ class CompanyService:
             logging.error(f"Error retrieving company list: {e}")
             raise ErrorRetrievingList(e)
 
-    async def get_by_id(self, company_id: str, user_id: str):
+    async def get_by_id(self, company_id: str, user_id: str) -> Company:
         try:
             result = await self.session.scalars(select(self.model).filter(self.model.company_id == company_id))
             company = result.first()
@@ -59,7 +61,7 @@ class CompanyService:
             logging.error(f"Error retrieving company with ID {company_id}: {e}")
             raise ErrorRetrievingCompany(e)
 
-    async def create(self, company_data: CompanyBase, user_id):
+    async def create(self, company_data: CompanyBase, user_id) -> Company:
         try:
             result = await (self.session.scalars
                             (select(self.model).filter(self.model.company_name == company_data.company_name)))
@@ -82,7 +84,7 @@ class CompanyService:
             logging.error(f"Error creating company: {e}")
             raise ErrorCreatingCompany(e)
 
-    async def update(self, company_id: str, company_data: CompanyUpdate, user_id: str):
+    async def update(self, company_id: str, company_data: CompanyUpdate, user_id: str) -> Company:
         try:
             company = await self.get_by_id(company_id, user_id)
             await check_company_owner(company, user_id)
@@ -99,7 +101,7 @@ class CompanyService:
             logging.error(f"Error during user update for company ID: {company_id}: {e}")
             raise ErrorUpdatingCompany(e)
 
-    async def delete(self, company_id: str, user_id: str):
+    async def delete(self, company_id: str, user_id: str) -> Company:
         try:
             company = await self.get_by_id(company_id, user_id)
             await check_company_owner(company, user_id)
@@ -117,7 +119,8 @@ class CompanyService:
             logging.error(f"Error deleting user with ID {company_id}: {e}")
             raise ErrorDeletingCompany(e)
 
-    async def get_company_members(self, company_id: str, page: int = 1, items_per_page: int = 10):
+    async def get_company_members(self, company_id: str, page: int = 1, items_per_page: int = 10) \
+            -> List[CompanyMemberResponse]:
         try:
             offset = (page - 1) * items_per_page
             query = await self.session.execute(
@@ -143,7 +146,7 @@ class CompanyService:
             logging.error(f"Error retrieving member list: {e}")
             raise ErrorRetrievingMember(e)
 
-    async def get_user_companies(self, user_id: str):
+    async def get_user_companies(self, user_id: str) -> CompanyMembers:
         try:
             result = await self.session.execute(select(CompanyMembers).filter((CompanyMembers.user_id == user_id)))
             member = result.scalars().first()
@@ -153,7 +156,7 @@ class CompanyService:
             logging.error(f"Error retrieving member with ID {user_id}: {e}")
             raise ErrorRetrievingCompany(e)
 
-    async def remove_member(self, company_id: str, user_id: str, member_id: str):
+    async def remove_member(self, company_id: str, user_id: str, member_id: str) -> str:
         try:
             result = await self.session.scalars(select(CompanyMembers).filter(
                 CompanyMembers.company_id == company_id, CompanyMembers.user_id == member_id))
@@ -177,7 +180,7 @@ class CompanyService:
             logging.error(f"Error retrieving company with ID {company_id}: {e}")
             raise ErrorRemovingMember(member_id, e)
 
-    async def leave_company(self, company_id: str, user_id: str):
+    async def leave_company(self, company_id: str, user_id: str) -> str:
         try:
             result = await self.session.scalars(select(CompanyMembers).filter(
                 CompanyMembers.company_id == company_id, CompanyMembers.user_id == user_id))
@@ -199,7 +202,7 @@ class CompanyService:
             logging.error(f"Error leaving company with ID {company_id}: {e}")
             raise ErrorLeavingCompany(company_id, e)
 
-    async def get_admins(self, company_id: str, page: int = 1, admin_per_page: int = 10):
+    async def get_admins(self, company_id: str, page: int = 1, admin_per_page: int = 10) -> List[Dict]:
         try:
             offset = (page - 1) * admin_per_page
             query = (
@@ -226,7 +229,7 @@ class CompanyService:
             logging.error(f"Error retrieving admins for company {company_id}: {e}")
             raise ErrorRetrievingAdmin(e)
 
-    async def set_admin_status(self, admin_data: CompanyAdmin, user_id: str):
+    async def set_admin_status(self, admin_data: CompanyAdmin, user_id: str) -> str:
         try:
             company = await self.get_by_id(admin_data.company_id, admin_data.user_id)
             await check_company_owner(company, user_id)

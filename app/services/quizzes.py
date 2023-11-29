@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from typing import List, Union
 from sqlalchemy import update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Quiz, CompanyMembers, Question
@@ -29,7 +30,7 @@ class QuizService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10):
+    async def get_all(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10) -> List[QuizBase]:
         try:
             offset = (page - 1) * items_per_page
             result = await self.session.scalars(select(CompanyMembers)
@@ -48,7 +49,7 @@ class QuizService:
             logging.error(f"Error retrieving quiz list: {e}")
             raise ErrorRetrievingList(e)
 
-    async def get_by_id(self, quiz_id: str, user_id: str):
+    async def get_by_id(self, quiz_id: str, user_id: str) -> Quiz:
         try:
             result = await self.session.scalars(select(self.model).filter(self.model.quiz_id == quiz_id))
             quiz = result.first()
@@ -65,7 +66,7 @@ class QuizService:
             logging.error(f"Error retrieving quiz with ID {quiz_id}: {e}")
             raise ErrorRetrievingQuiz(e)
 
-    async def create(self, user_id: str, quiz_data: QuizBase):
+    async def create(self, user_id: str, quiz_data: QuizBase) -> Quiz:
         try:
             result = await (self.session.scalars(select(self.model)
                                                  .filter(self.model.quiz_name == quiz_data.quiz_name)))
@@ -87,7 +88,7 @@ class QuizService:
             logging.error(f"Error creating quiz: {e}")
             raise ErrorCreatingQuiz(e)
 
-    async def update(self, quiz_id: str, quiz_data: QuizUpdate, user_id: str):
+    async def update(self, quiz_id: str, quiz_data: QuizUpdate, user_id: str) -> Quiz:
         try:
             await check_company_owner_or_admin(self.session, user_id, quiz_id)
             quiz_data.quiz_updated_by = user_id
@@ -110,13 +111,12 @@ class QuizService:
             await self.session.delete(quiz)
             await self.session.commit()
             logging.info("Deleting quiz processed successfully")
-            return quiz
 
         except Exception as e:
             logging.error(f"Error deleting quiz with ID {quiz_id}: {e}")
             raise ErrorDeletingQuiz(e)
 
-    async def quiz_pass(self, quiz_id: str, quiz_data: QuizPass, user_id: str):
+    async def quiz_pass(self, quiz_id: str, quiz_data: QuizPass, user_id: str) -> List[Union[str, List[str]]]:
         try:
             await check_company_owner_or_admin(self.session, user_id, quiz_id)
 

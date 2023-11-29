@@ -1,28 +1,27 @@
 class CustomException(Exception):
-    def __init__(self, status_code: int, detail: str, **kwargs):
-        self.status_code = status_code
+    def __init__(self, detail: str, **kwargs):
         self.detail = detail.format(**kwargs)
         super().__init__(self.detail)
 
 
 class ErrorStartingApp(CustomException):
     def __init__(self, e, **kwargs):
-        super().__init__(status_code=500, detail=f"Error starting app: {e}", **kwargs)
+        super().__init__(detail=f"Error starting app: {e}", **kwargs)
 
 
 class ErrorPostgresSQL(CustomException):
     def __init__(self, e, **kwargs):
-        super().__init__(status_code=500, detail=f"Error checking PostgresSQL connection: {e}", **kwargs)
+        super().__init__(detail=f"Error checking PostgresSQL connection: {e}", **kwargs)
 
 
 class ErrorRedis(CustomException):
     def __init__(self, e, **kwargs):
-        super().__init__(status_code=500, detail=f"Error checking Redis connection: {e}", **kwargs)
+        super().__init__(detail=f"Error checking Redis connection: {e}", **kwargs)
 
 
 class ObjectNotFound(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=404, detail="{object_type} with ID {object_id} not found.", **kwargs)
+        super().__init__(detail="{object_type} with ID {object_id} not found.", **kwargs)
 
 
 class UserNotFound(ObjectNotFound):
@@ -52,7 +51,7 @@ class QuestionNotFound(ObjectNotFound):
 
 class ErrorRetrieving(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=500, detail="Error retrieving {object_type}: {e}", **kwargs)
+        super().__init__(detail="Error retrieving {object_type}: {e}", **kwargs)
 
 
 class ErrorRetrievingList(ErrorRetrieving):
@@ -122,7 +121,7 @@ class ErrorRetrievingQuestion(ErrorRetrieving):
 
 class AlreadyExists(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=409, detail="{object_type} already exists.", **kwargs)
+        super().__init__(detail="{object_type} already exists.", **kwargs)
 
 
 class AlreadyExistsUser(AlreadyExists):
@@ -157,7 +156,7 @@ class AlreadyExistsQuestion(AlreadyExists):
 
 class ErrorCreating(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=500, detail="Error creating {object_type}: {e}", **kwargs)
+        super().__init__(detail="Error creating {object_type}: {e}", **kwargs)
 
 
 class ErrorCreatingUser(ErrorCreating):
@@ -202,7 +201,7 @@ class ErrorCreatingQuestion(ErrorCreating):
 
 class ErrorUpdating(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=500, detail="Error updating {object_type}: {e}", **kwargs)
+        super().__init__(detail="Error updating {object_type}: {e}", **kwargs)
 
 
 class ErrorUpdatingUser(ErrorUpdating):
@@ -237,7 +236,7 @@ class ErrorUpdatingQuestion(ErrorUpdating):
 
 class ErrorDeleting(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=500, detail="Error deleting {object_type}: {e}", **kwargs)
+        super().__init__(detail="Error deleting {object_type}: {e}", **kwargs)
 
 
 class ErrorDeletingUser(ErrorDeleting):
@@ -257,7 +256,7 @@ class ErrorDeletingUserProfile(ErrorDeleting):
 
 class ErrorDeletingAnotherProfile(ErrorDeleting):
     def __init__(self, e):
-        super().__init__(status_code=403, object_type="Quiz", e=e)
+        super().__init__(object_type="Quiz", e=e)
 
 
 class ErrorDeletingQuiz(ErrorDeleting):
@@ -272,7 +271,7 @@ class ErrorDeletingQuestion(ErrorDeleting):
 
 class Invalid(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=500, detail="Invalid {object_type}, {details}", **kwargs)
+        super().__init__(detail="Invalid {object_type}, {details}", **kwargs)
 
 
 class InvalidToken(Invalid):
@@ -287,7 +286,7 @@ class InvalidAction(Invalid):
 
 class ErrorSettingRole(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=500, detail="Error setting {object_type} role for User: {e}", **kwargs)
+        super().__init__(detail="Error setting {object_type} role for User: {e}", **kwargs)
 
 
 class ErrorSettingRoleAdmin(ErrorSettingRole):
@@ -297,7 +296,7 @@ class ErrorSettingRoleAdmin(ErrorSettingRole):
 
 class Not(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=403, detail="You are not the {object_type} of this company", **kwargs)
+        super().__init__(detail="You are not the {object_type} of this company", **kwargs)
 
 
 class NotOwner(Not):
@@ -317,84 +316,84 @@ class NotOwnerOrAdmin(Not):
 
 class ErrorPasswordMatch(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=401, detail="Error password match.", **kwargs)
+        super().__init__(detail="Error password match.", **kwargs)
 
 
 class ErrorAuthentication(CustomException):
     def __init__(self, e, **kwargs):
-        super().__init__(status_code=401, detail=f"Error user authentication: {e}", **kwargs)
+        super().__init__(detail=f"Error user authentication: {e}", **kwargs)
 
 
 class TokenExpired(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=201, detail="Token expired", **kwargs)
+        super().__init__(detail="Token expired", **kwargs)
 
 
 class InvalidCredentials(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=403, detail="Invalid credentials", **kwargs)
+        super().__init__(detail="Invalid credentials", **kwargs)
 
 
 class ErrorHiddenCompany(CustomException):
     def __init__(self, company_id, **kwargs):
-        super().__init__(status_code=404, detail=f"Company with ID {company_id} is hidden", **kwargs)
+        super().__init__(detail=f"Company with ID {company_id} is hidden", **kwargs)
 
 
 class ErrorRemovingMember(CustomException):
     def __init__(self, member_id, e, **kwargs):
-        super().__init__(status_code=500, detail=f"Error removing member {member_id}: {e}", **kwargs)
+        super().__init__(detail=f"Error removing member {member_id}: {e}", **kwargs)
 
 
 class OwnerLeave(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=400, detail="Owner cannot leave the company", **kwargs)
+        super().__init__(detail="Owner cannot leave the company", **kwargs)
 
 
 class ErrorLeavingCompany(CustomException):
     def __init__(self, company_id, e, **kwargs):
-        super().__init__(status_code=400, detail=f"Error leaving company with ID {company_id}: {e}", **kwargs)
+        super().__init__(detail=f"Error leaving company with ID {company_id}: {e}", **kwargs)
 
 
 class InviteToOwnCompany(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=400, detail="You cannot invite yourself to your own company", **kwargs)
+        super().__init__(detail="You cannot invite yourself to your own company", **kwargs)
 
 
 class NoPermission(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=403, detail="You don't have permission", **kwargs)
+        super().__init__(detail="You don't have permission", **kwargs)
 
 
 class ErrorHandleInvitation(CustomException):
     def __init__(self, e, **kwargs):
-        super().__init__(status_code=500, detail=f"Error during handle the invitation for company: {e}", **kwargs)
+        super().__init__(detail=f"Error during handle the invitation for company: {e}", **kwargs)
 
 
 class ErrorChangeOwnerAdminRole(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=400, detail="Error change admin role for owner", **kwargs)
+        super().__init__(detail="Error change admin role for owner", **kwargs)
 
 
 class ErrorPassQuiz(CustomException):
     def __init__(self, e, **kwargs):
-        super().__init__(status_code=500, detail=f"Error passing quiz: {e}", **kwargs)
+        super().__init__(detail=f"Error passing quiz: {e}", **kwargs)
 
 
 class EmptyAnswer(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=422, detail="Answer is empty", **kwargs)
+        super().__init__(detail="Answer is empty", **kwargs)
 
 
 class LessThen2Questions(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=422, detail="There should be at least 2 questions in the quiz", **kwargs)
+        super().__init__(detail="There should be at least 2 questions in the quiz", **kwargs)
 
 
 class LessThen2Answers(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=422, detail="There should be at least 2 answers for question", **kwargs)
+        super().__init__(detail="There should be at least 2 answers for question", **kwargs)
 
 
 class QuizNotAvailable(CustomException):
     def __init__(self, **kwargs):
-        super().__init__(status_code=422, detail="Quiz is not available", **kwargs)
+        super().__init__(detail="Quiz is not available", **kwargs)

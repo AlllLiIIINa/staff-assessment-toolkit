@@ -46,7 +46,7 @@ class AuthService:
             logging.error(f"Error user authentication: {e}")
             raise ErrorAuthentication(e)
 
-    async def get_user_token(self, form_data: OAuth2PasswordRequestForm):
+    async def get_user_token(self, form_data: OAuth2PasswordRequestForm) -> Union[str, dict]:
         try:
             user = await self.user_auth(form_data.username, form_data.password)
 
@@ -134,7 +134,7 @@ class AuthService:
             logging.error(f"Error getting current user: {e}")
             raise ErrorRetrievingCurrentUser(e)
 
-    async def update_profile(self, user: User, user_id: str, user_data: UserUpdate):
+    async def update_profile(self, user: User, user_id: str, user_data: UserUpdate) -> User:
         try:
             if user.user_id != user_id:
                 self.logger.error("User attempted to update another user's profile, which is not allowed.")
@@ -150,7 +150,7 @@ class AuthService:
             logging.error(f"Error updating User profile. {e}")
             raise ErrorUpdatingUserProfile(e)
 
-    async def delete_profile(self, user, user_id: str):
+    async def delete_profile(self, user, user_id: str) -> User:
         try:
             if user.user_id != user_id:
                 self.logger.error("User attempted to delete another user's profile, which is not allowed.")

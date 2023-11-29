@@ -27,7 +27,6 @@ class CompanyInvitations(Base):
 
 class User(Base):
     __tablename__: str = "users"
-    __bind_key__ = "internship_db"
 
     user_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     user_email = Column(String, unique=True, index=True, nullable=False)
@@ -60,7 +59,6 @@ class User(Base):
 
 class Company(Base):
     __tablename__: str = "companies"
-    __bind_key__ = "internship_db"
 
     company_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     company_name = Column(String, default=None, unique=True)
@@ -93,7 +91,6 @@ class Company(Base):
 
 class Quiz(Base):
     __tablename__: str = "quizzes"
-    __bind_key__ = "internship_db"
 
     quiz_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     quiz_name = Column(String, default=None)
@@ -122,7 +119,6 @@ class Quiz(Base):
 
 class Question(Base):
     __tablename__: str = "questions"
-    __bind_key__ = "internship_db"
 
     question_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     question_text = Column(String, default=None)

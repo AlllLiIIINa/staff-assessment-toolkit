@@ -1,4 +1,5 @@
 import logging
+from typing import List, Union, Tuple, Dict
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Question, Company, CompanyMembers, Quiz
@@ -27,7 +28,8 @@ class QuestionService:
         self.session = session
         self.company_service = CompanyService(self.session)
 
-    async def get_all(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10):
+    async def get_all(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10) \
+            -> List[QuestionBase]:
         try:
             await check_company_owner_or_admin(self.session, company_id, user_id)
             offset = (page - 1) * items_per_page
@@ -40,7 +42,7 @@ class QuestionService:
             logging.error(f"Error retrieving question list: {e}")
             raise ErrorRetrievingList(e)
 
-    async def get_by_id(self, question_id: str, user_id: str):
+    async def get_by_id(self, question_id: str, user_id: str) -> Question:
         try:
             result = await self.session.scalars(select(self.model).filter(self.model.question_id == question_id))
             question = result.first()
@@ -57,7 +59,7 @@ class QuestionService:
             logging.error(f"Error retrieving quiz with ID {question_id}: {e}")
             raise ErrorRetrievingQuestion(e)
 
-    async def create(self, user_id: str, question_data: QuestionBase):
+    async def create(self, user_id: str, question_data: QuestionBase) -> Union[Tuple[Question, str], Question]:
         try:
             quiz_company_id = await self.session.scalar(select(Quiz.company_id)
                                                         .filter(Quiz.quiz_id == question_data.quiz_id))
@@ -94,7 +96,7 @@ class QuestionService:
             logging.error(f"Error creating question: {e}")
             raise ErrorCreatingQuestion(e)
 
-    async def update(self, question_id: str, question_data: QuestionUpdate, user_id: str):
+    async def update(self, question_id: str, question_data: QuestionUpdate, user_id: str) -> Question:
         try:
             result = await (self.session.scalars(
                 select(self.model).filter(self.model.question_id == question_id)))
@@ -122,13 +124,12 @@ class QuestionService:
             await self.session.delete(question)
             await self.session.commit()
             logging.info("Deleting quiz processed successfully")
-            return question
 
         except Exception as e:
             logging.error(f"Error deleting quiz with ID {question_id}: {e}")
             raise ErrorDeletingQuestion(e)
 
-    async def quiz_questions(self, quiz_id: str, user_id: str):
+    async def quiz_questions(self, quiz_id: str, user_id: str) -> List[Dict[str, Union[str, List[str]]]]:
         try:
             quiz_company_id = await self.session.scalar(select(Quiz.company_id).filter(Quiz.quiz_id == quiz_id))
             result = await self.session.scalars(select(CompanyMembers)
