@@ -174,7 +174,7 @@ class QuizService:
             logging.info(existing_result)
 
             if existing_result:
-                existing_result.result_right_count = (existing_result.result_right_count + right_count) / 2
+                existing_result.result_right_count = (existing_result.result_right_count + right_count) / total_count
                 logging.info(existing_result.result_right_count)
                 existing_result.result_total_count = total_count
                 existing_result.result_created_at = datetime.utcnow()
