@@ -1,13 +1,16 @@
+import json
 import logging
-from datetime import datetime
+from redis import asyncio
+from datetime import datetime, timedelta
 from typing import List, Union
-from sqlalchemy import update, select, func, String, desc, text
+from sqlalchemy import update, select, func, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.config import Settings
 from app.db.models import Quiz, CompanyMembers, Question, Result
 from app.depends.exceptions import ErrorRetrievingList, AlreadyExistsQuiz, NotOwnerOrAdmin, ErrorCreatingQuiz, \
     QuizNotFound, ErrorRetrievingQuiz, NotMember, ErrorUpdatingQuiz, ErrorDeletingQuiz, ErrorPassQuiz, EmptyAnswer, \
     LessThen2Questions, QuizNotAvailable, NotOwnerOrAdminOrSelf, NotSelf, ErrorUserScoreCompany, \
-    ErrorUserScoreCompanies, ErrorUsersScoreCompanies
+    ErrorUserScoreCompanies, ErrorUsersScoreCompanies, ErrorGetRedisData
 from app.schemas.quiz import QuizBase, QuizUpdate, QuizPass
 
 
@@ -22,6 +25,25 @@ async def check_company_owner_or_admin(session: AsyncSession, user_id: str, comp
         raise NotOwnerOrAdmin
 
     return True
+
+
+async def get_redis_data(quiz_id: str, user_id: str, question_id: str):
+    try:
+        redis_client = await asyncio.from_url(Settings.REDIS_URL)
+        redis_key = f"quiz_pass:{quiz_id}:{user_id}:question_{question_id}"
+        redis_data_str = await redis_client.get(redis_key)
+
+        if redis_data_str is not None:
+            redis_data = json.loads(redis_data_str)
+            await redis_client.close()
+            return redis_data
+
+        else:
+            raise ErrorGetRedisData(e="Redis data not found.")
+
+    except Exception as e:
+        logging.error(f"Error retrieving redis data: {e}")
+        raise ErrorGetRedisData(e)
 
 
 class QuizService:
@@ -152,20 +174,39 @@ class QuizService:
             right_count = 0
             total_count = len(quiz_questions)
 
-            for index, (question, user_answer) in enumerate(zip(quiz_questions, quiz_data.answers)):
-                correct_answers = [answer.lower() for answer in question.question_correct_answer]
-                user_answers = user_answer.split(',')
-                user_answers_lower = [ans.lower() for ans in user_answers]
+            async with await asyncio.from_url(Settings.REDIS_URL) as redis_client:
+                logging.info("Connecting redis processed successfully")
 
-                if any(ans in correct_answers for ans in user_answers_lower):
-                    feedback.append(f"Question {index + 1}: Correct!")
-                    right_count += 1
-                else:
-                    correct_answers_str = "; ".join(correct_answers)
-                    feedback.append(
-                        f"Question {index + 1}: Incorrect. Correct answer(s) is/are '{correct_answers_str}'"
-                    )
+                for index, (question, user_answer) in enumerate(zip(quiz_questions, quiz_data.answers)):
+                    correct_answers = [answer.lower() for answer in question.question_correct_answer]
+                    user_answers = user_answer.split(',')
+                    user_answers_lower = [ans.lower() for ans in user_answers]
+                    is_correct = any(ans in correct_answers for ans in user_answers_lower)
+                    redis_key = f"quiz_pass:{quiz_id}:{user_id}:question_{question.question_id}"
+                    await redis_client.get(redis_key)
+                    redis_data = {
+                        "user_id": str(user_id),
+                        "company_id": str(quiz.company_id),
+                        "quiz_id": str(quiz_id),
+                        "question_id": str(question.question_id),
+                        "user_answer": user_answer,
+                        "is_correct": is_correct,
+                    }
+                    logging.info(f"Redis Key: {redis_key}")
+                    logging.info(f"Redis data: {redis_data}")
+                    await redis_client.setex(redis_key, timedelta(minutes=2), json.dumps(redis_data))
 
+                    if is_correct:
+                        feedback.append(f"Question {index + 1}: Correct!")
+                        right_count += 1
+
+                    else:
+                        correct_answers_str = "; ".join(correct_answers)
+                        feedback.append(
+                            f"Question {index + 1}: Incorrect. Correct answer(s) is/are '{correct_answers_str}'"
+                        )
+
+            await redis_client.close()
             logging.info("Passing quiz processed successfully")
             query = await self.session.scalars(select(Result)
                                                .filter(Result.result_user_id == user_id,
@@ -174,10 +215,11 @@ class QuizService:
             logging.info(existing_result)
 
             if existing_result:
-                existing_result.result_right_count = (existing_result.result_right_count + right_count) / 2
+                existing_result.result_right_count = (existing_result.result_right_count + right_count) / total_count
                 logging.info(existing_result.result_right_count)
                 existing_result.result_total_count = total_count
                 existing_result.result_created_at = datetime.utcnow()
+
             else:
                 result_instance = Result(
                     result_user_id=user_id,
@@ -190,7 +232,6 @@ class QuizService:
                 self.session.add(result_instance)
 
             await self.session.commit()
-
             return feedback
 
         except Exception as e:
@@ -267,3 +308,5 @@ class QuizService:
         except Exception as e:
             logging.error(f"Error retrieving average scores for all users: {e}")
             raise ErrorUsersScoreCompanies(e)
+
+

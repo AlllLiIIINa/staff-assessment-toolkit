@@ -5,7 +5,7 @@ from app.depends.depends import get_quiz_service, get_question_service
 from app.schemas.quiz import QuizBase, QuizUpdate, QuestionUpdate, QuestionBase, QuizPass
 from app.services.auth import AuthService
 from app.services.questions import QuestionService
-from app.services.quizzes import QuizService
+from app.services.quizzes import QuizService, get_redis_data
 
 quiz_router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
@@ -103,3 +103,7 @@ async def user_score_companies(user_id: str, user: User = Depends(AuthService.ge
 async def user_rating(quiz_service: QuizService = Depends(get_quiz_service)):
     return await quiz_service.score_all_users()
 
+
+@quiz_router.get("/score/redis", operation_id="user_redis")
+async def get_redis_data_(quiz_id: str, user_id: str, question_id: str):
+    return await get_redis_data(quiz_id, user_id, question_id)

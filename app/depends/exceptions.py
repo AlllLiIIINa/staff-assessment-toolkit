@@ -423,3 +423,8 @@ class ErrorUserScoreCompanies(CustomException):
 class ErrorUsersScoreCompanies(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(detail=f"Error retrieving average scores for all users in companies: {e}", **kwargs)
+
+
+class ErrorGetRedisData(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error retrieving redis data: {e}", **kwargs)
