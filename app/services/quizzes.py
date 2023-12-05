@@ -1,8 +1,8 @@
 import json
 import logging
-from redis import asyncio
 from datetime import datetime, timedelta
 from typing import List, Union
+from redis import asyncio
 from sqlalchemy import update, select, func, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
@@ -194,7 +194,7 @@ class QuizService:
                     }
                     logging.info(f"Redis Key: {redis_key}")
                     logging.info(f"Redis data: {redis_data}")
-                    await redis_client.setex(redis_key, timedelta(minutes=2), json.dumps(redis_data))
+                    await redis_client.setex(redis_key, timedelta(hours=48), json.dumps(redis_data))
 
                     if is_correct:
                         feedback.append(f"Question {index + 1}: Correct!")
@@ -270,7 +270,6 @@ class QuizService:
                 .filter(Result.result_user_id == user_id)
                 .group_by(Result.result_company_id)
             )
-
             average_scores = query.all()
             result = round(sum(average_scores) / len(average_scores), 2) if average_scores else None
             return f"Your average score across all companies: {result}"
@@ -291,7 +290,6 @@ class QuizService:
                 .group_by(Result.result_user_id)
                 .order_by(desc(text('average_score')))
             )
-
             user_scores = result.all()
             formatted_scores = []
 
