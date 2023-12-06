@@ -284,6 +284,11 @@ class InvalidAction(Invalid):
         super().__init__(object_type="Action", details="use 'accept' or 'reject")
 
 
+class InvalidExportFormat(Invalid):
+    def __init__(self):
+        super().__init__(object_type="Export Format", details="supported formats: JSON, CSV.")
+
+
 class ErrorSettingRole(CustomException):
     def __init__(self, **kwargs):
         super().__init__(detail="Error setting {object_type} role for User: {e}", **kwargs)
@@ -428,3 +433,8 @@ class ErrorUsersScoreCompanies(CustomException):
 class ErrorGetRedisData(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(detail=f"Error retrieving redis data: {e}", **kwargs)
+
+
+class ErrorExport(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error exporting data: {e}", **kwargs)

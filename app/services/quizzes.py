@@ -1,5 +1,7 @@
+import csv
 import json
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import List, Union
 from redis import asyncio
@@ -10,7 +12,7 @@ from app.db.models import Quiz, CompanyMembers, Question, Result
 from app.depends.exceptions import ErrorRetrievingList, AlreadyExistsQuiz, NotOwnerOrAdmin, ErrorCreatingQuiz, \
     QuizNotFound, ErrorRetrievingQuiz, NotMember, ErrorUpdatingQuiz, ErrorDeletingQuiz, ErrorPassQuiz, EmptyAnswer, \
     LessThen2Questions, QuizNotAvailable, NotOwnerOrAdminOrSelf, NotSelf, ErrorUserScoreCompany, \
-    ErrorUserScoreCompanies, ErrorUsersScoreCompanies, ErrorGetRedisData
+    ErrorUserScoreCompanies, ErrorUsersScoreCompanies, ErrorGetRedisData, ErrorExport, InvalidExportFormat
 from app.schemas.quiz import QuizBase, QuizUpdate, QuizPass
 
 
@@ -27,23 +29,57 @@ async def check_company_owner_or_admin(session: AsyncSession, user_id: str, comp
     return True
 
 
-async def get_redis_data(quiz_id: str, user_id: str, question_id: str):
+async def get_redis_data(quiz_id: str, user_id: str, question_id: str) -> dict:
     try:
-        redis_client = await asyncio.from_url(Settings.REDIS_URL)
+        async with await asyncio.from_url(Settings.REDIS_URL) as redis_client:
+            logging.info("Connecting redis processed successfully")
         redis_key = f"quiz_pass:{quiz_id}:{user_id}:question_{question_id}"
+        logging.info(f"Redis key: {redis_key}")
         redis_data_str = await redis_client.get(redis_key)
 
         if redis_data_str is not None:
             redis_data = json.loads(redis_data_str)
+            logging.info("Getting redis data processed successfully")
             await redis_client.close()
+            logging.info("Disconnecting redis processed successfully")
             return redis_data
 
         else:
+            logging.warning("Redis data not found for key: {redis_key}")
             raise ErrorGetRedisData(e="Redis data not found.")
 
     except Exception as e:
         logging.error(f"Error retrieving redis data: {e}")
         raise ErrorGetRedisData(e)
+
+
+async def export_redis_data(user_id: str, quiz_id: str, question_id: str, export_format: str, filename: str):
+    try:
+        logging.info(f"Exported data for user_id: {user_id}, quiz_id: {quiz_id}, question_id: {question_id} to Redis")
+        redis_data = await get_redis_data(quiz_id, user_id, question_id)
+        logging.info(f" Redis_data: {redis_data}")
+        file_path = os.path.join("C:/", "results", filename)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        if export_format.lower() == 'json':
+            with open(file_path, 'a', encoding='utf-8') as json_file:
+                json.dump(redis_data, json_file, ensure_ascii=False, indent=2)
+            logging.info("Export redis data with JSON processed successfully")
+
+        elif export_format.lower() == 'csv':
+            with open(file_path, mode='a', newline='', encoding='utf-8') as csv_file:
+                writer = csv.DictWriter(csv_file, fieldnames=redis_data.keys())
+                writer.writeheader()
+                writer.writerow(redis_data)
+            logging.info("Export redis data with CSV processed successfully")
+
+        else:
+            logging.error(f"Invalid export format '{export_format}'. Supported formats: JSON, CSV.")
+            raise InvalidExportFormat
+
+    except ErrorGetRedisData as e:
+        logging.error(f"Error exporting data: {e}")
+        raise ErrorExport(e)
 
 
 class QuizService:
@@ -238,44 +274,162 @@ class QuizService:
             logging.error(f"Error passing quiz with ID {quiz_id}: {e}")
             raise ErrorPassQuiz(e)
 
-    async def user_score_company(self, company_id: str, user_id: str, user: str) -> str:
+    async def get_question_ids_for_quiz(self, quiz_id):
+        result = await self.session.scalars(select(Question.question_id).filter(Question.quiz_id == quiz_id))
+        question_ids = [question_id for question_id in result.all()]
+        return question_ids
+
+    async def get_user_quiz_data(self, user_id: str):
+        try:
+            result = await self.session.scalars(
+                select(Question.question_id, Question.quiz_id)
+                .filter(Question.quiz_id == Quiz.quiz_id, Quiz.company_id == CompanyMembers.company_id,
+                        CompanyMembers.user_id == user_id)
+            )
+            user_quiz_data = result.all()
+            return user_quiz_data
+
+        except Exception as e:
+            logging.error(f"Error retrieving user quiz data: {e}")
+            raise ErrorRetrievingQuiz(e)
+
+    async def user_score_company(self, company_id: str, user_id: str, export_format: str, user: str) -> str:
         try:
             if str(user) != user_id or await check_company_owner_or_admin(self.session, str(user), company_id) != True:
                 logging.error("You are not the owner or admin of this company")
                 raise NotOwnerOrAdminOrSelf
 
-            query = await self.session.scalars(
-                select(func.avg(Result.result_right_count / Result.result_total_count)
-                       .label('average_score'))
+            query = await self.session.execute(
+                select(
+                    Result.result_user_id,
+                    Result.result_quiz_id,
+                    func.avg(Result.result_right_count / Result.result_total_count).label('average_score'))
                 .filter(Result.result_user_id == user_id, Result.result_company_id == company_id)
-                .group_by(Result.result_quiz_id)
+                .group_by(Result.result_user_id, Result.result_quiz_id)
             )
-            average_scores = query.all()
-            result = round(sum(average_scores) / len(average_scores), 2) if average_scores else None
-            return f"Your score in company with ID {company_id}: {result}"
+            user_scores = query.all()
+            result_str = ""
+
+            for user in user_scores:
+                user_id = user.result_user_id
+                quiz_id = user.result_quiz_id
+                formatted_scores = {}
+
+                if user_id not in formatted_scores:
+                    formatted_scores[user_id] = {
+                        'question_ids': {}
+                    }
+
+                if quiz_id not in formatted_scores[user_id]['question_ids']:
+                    formatted_scores[user_id]['question_ids'][quiz_id] = await self.get_question_ids_for_quiz(quiz_id)
+
+                for user_id, user_data in formatted_scores.items():
+                    for quiz_id, question_ids in user_data['question_ids'].items():
+                        for question_id in question_ids:
+                            if export_format:
+                                filename = f"user_score_company_results.{export_format.lower()}"
+                                await export_redis_data(user_id, quiz_id, question_id, export_format, filename)
+
+                average_score = round(user.average_score, 2)
+                result_str = f"{user_id}: {average_score}; "
+            return f"Your score in company with ID {company_id}: {result_str}"
 
         except Exception as e:
             logging.error(f"Error retrieving average scores for user in company with ID {company_id}: {e}")
             raise ErrorUserScoreCompany(company_id, e)
 
-    async def user_score_companies(self, user_id: str, user: str) -> str:
+    async def user_score_companies(self, user_id: str, export_format: str, user: str) -> str:
         try:
             if str(user) != user_id:
                 logging.error("You are not the owner or admin of this company")
                 raise NotSelf
 
-            query = await self.session.scalars(
-                select(func.avg(Result.result_right_count / Result.result_total_count)
-                       .label('average_score'))
+            query = await self.session.execute(
+                select(
+                    Result.result_user_id,
+                    Result.result_company_id,
+                    Result.result_quiz_id,
+                    func.avg(Result.result_right_count / Result.result_total_count).label('average_score'))
                 .filter(Result.result_user_id == user_id)
-                .group_by(Result.result_company_id)
+                .group_by(Result.result_company_id, Result.result_quiz_id, Result.result_user_id)
             )
-            average_scores = query.all()
-            result = round(sum(average_scores) / len(average_scores), 2) if average_scores else None
-            return f"Your average score across all companies: {result}"
+
+            user_scores = query.all()
+            formatted_scores = {}
+            result_str = ""
+
+            for user in user_scores:
+                user_id = user.result_user_id
+                quiz_id = user.result_quiz_id
+
+                if user_id not in formatted_scores:
+                    formatted_scores[user_id] = {
+                        'question_ids': {}
+                    }
+
+                if quiz_id not in formatted_scores[user_id]['question_ids']:
+                    formatted_scores[user_id]['question_ids'][quiz_id] = await self.get_question_ids_for_quiz(quiz_id)
+
+                for quiz_id, question_ids in formatted_scores[user_id]['question_ids'].items():
+                    for question_id in question_ids:
+                        if export_format:
+                            filename = f"user_score_companies_results.{export_format.lower()}"
+                            await export_redis_data(user_id, quiz_id, question_id, export_format, filename)
+
+                average_across_companies = sum([score.average_score for score in user_scores]) / len(user_scores)
+                result_str = str(round(average_across_companies, 2))
+
+            return f"Your average score across all companies for user with ID {user_id}: {result_str}"
 
         except Exception as e:
             logging.error(f"Error retrieving average scores for user in companies: {e}")
+            raise ErrorUserScoreCompanies(e)
+
+    async def company_results(self, company_id: str, export_format: str, user_id: str) -> str:
+        try:
+            await check_company_owner_or_admin(self.session, user_id, company_id)
+            query = await self.session.execute(
+                select(
+                    Result.result_quiz_id,
+                    Result.result_user_id,
+                    func.avg(Result.result_right_count / Result.result_total_count).label('average_score')
+                )
+                .filter(Result.result_company_id == company_id)
+                .group_by(Result.result_user_id, Result.result_quiz_id)
+                .order_by(desc(text('average_score')))
+            )
+            user_scores = query.all()
+            formatted_scores = {}
+
+            for user in user_scores:
+                user_id = user.result_user_id
+                quiz_id = user.result_quiz_id
+
+                if user_id not in formatted_scores:
+                    formatted_scores[user_id] = {
+                        'total_right_count': 0,
+                        'total_question_count': 0,
+                        'question_ids': {}
+                    }
+
+                if quiz_id not in formatted_scores[user_id]['question_ids']:
+                    formatted_scores[user_id]['question_ids'][quiz_id] = await self.get_question_ids_for_quiz(quiz_id)
+
+            result_str = ""
+
+            for user_id, user_data in formatted_scores.items():
+                for quiz_id, question_ids in user_data['question_ids'].items():
+                    for question_id in question_ids:
+                        if export_format:
+                            filename = f"company_results.{export_format.lower()}"
+                            await export_redis_data(user_id, quiz_id, question_id, export_format, filename)
+
+                result_str = ", ".join(
+                    [f"{score.result_user_id}: {round(score.average_score, 2)}" for score in user_scores])
+            return f"Average scores for company with ID {company_id}: {result_str.strip()}"
+
+        except Exception as e:
+            logging.error(f"Error retrieving results for all users: {e}")
             raise ErrorUserScoreCompanies(e)
 
     async def score_all_users(self) -> str:
@@ -296,7 +450,6 @@ class QuizService:
             for user in user_scores:
                 total_right_count = user.total_right_count or 0
                 total_question_count = user.total_question_count or 0
-
                 average_score = round(total_right_count / total_question_count, 2) if total_question_count > 0 else 0
                 formatted_scores.append(f"{user.result_user_id}: {average_score}")
 
@@ -306,5 +459,3 @@ class QuizService:
         except Exception as e:
             logging.error(f"Error retrieving average scores for all users: {e}")
             raise ErrorUsersScoreCompanies(e)
-
-
