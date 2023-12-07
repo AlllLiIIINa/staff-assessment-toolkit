@@ -1,11 +1,12 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, Query
 from app.db.models import User
-from app.depends.depends import get_quiz_service, get_question_service
+from app.depends.depends import get_quiz_service, get_question_service, get_result_service
 from app.schemas.quiz import QuizBase, QuizUpdate, QuestionUpdate, QuestionBase, QuizPass
 from app.services.auth import AuthService
 from app.services.questions import QuestionService
-from app.services.quizzes import QuizService, get_redis_data
+from app.services.quizzes import QuizService
+from app.services.results import ResultService, get_redis_data
 
 quiz_router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
@@ -87,29 +88,32 @@ async def quiz_pass(quiz_id: str, quiz_data: QuizPass, user: User = Depends(Auth
     return await quiz_service.quiz_pass(quiz_id, quiz_data, user.user_id)
 
 
-@quiz_router.get("/score/company", operation_id="user_quiz_score_company")
-async def user_score_company(company_id: str, user_id: str, export_format: str = None, user: User = Depends(AuthService.get_current_user),
-                             quiz_service: QuizService = Depends(get_quiz_service)):
-    return await quiz_service.user_score_company(company_id, user_id, export_format, user.user_id)
+@quiz_router.get("/result/company", operation_id="user_quiz_result_company")
+async def user_score_company(company_id: str, user_id: str, export_format: str = None,
+                             user: User = Depends(AuthService.get_current_user),
+                             result_service: ResultService = Depends(get_result_service)):
+    return await result_service.user_result_company(company_id, user_id, export_format, user.user_id)
 
 
-@quiz_router.get("/score/companies", operation_id="user_quiz_score_companies")
-async def user_score_companies(user_id: str, export_format: str = None, user: User = Depends(AuthService.get_current_user),
-                               quiz_service: QuizService = Depends(get_quiz_service)):
-    return await quiz_service.user_score_companies(user_id, export_format, user.user_id)
+@quiz_router.get("/result/companies", operation_id="user_quiz_result_companies")
+async def user_score_companies(user_id: str, export_format: str = None,
+                               user: User = Depends(AuthService.get_current_user),
+                               result_service: ResultService = Depends(get_result_service)):
+    return await result_service.user_result_companies(user_id, export_format, user.user_id)
 
 
-@quiz_router.get("/score/company/", operation_id="company_rating")
-async def company_rating(company_id: str, export_format: str = None, quiz_service: QuizService = Depends(get_quiz_service),
+@quiz_router.get("/result/rating/company", operation_id="company_rating")
+async def company_rating(company_id: str, export_format: str = None,
+                         result_service: ResultService = Depends(get_result_service),
                          user: User = Depends(AuthService.get_current_user)):
-    return await quiz_service.company_results(company_id, export_format, user.user_id)
+    return await result_service.company_results(company_id, export_format, user.user_id)
 
 
-@quiz_router.get("/score/rating", operation_id="user_quiz_rating")
-async def user_rating(quiz_service: QuizService = Depends(get_quiz_service)):
-    return await quiz_service.score_all_users()
+@quiz_router.get("/result/rating", operation_id="user_quiz_rating")
+async def user_rating(result_service: ResultService = Depends(get_result_service)):
+    return await result_service.all_users_results()
 
 
-@quiz_router.get("/score/redis", operation_id="user_redis")
+@quiz_router.get("/result/redis", operation_id="user_quiz_redis_data")
 async def get_redis_data_(quiz_id: str, user_id: str, question_id: str):
     return await get_redis_data(quiz_id, user_id, question_id)
