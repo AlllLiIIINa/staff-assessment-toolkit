@@ -195,22 +195,15 @@ class QuizService:
             existing_result = query.first()
             logging.info(existing_result)
 
-            if existing_result:
-                existing_result.result_right_count = (existing_result.result_right_count + right_count) / total_count
-                logging.info(existing_result.result_right_count)
-                existing_result.result_total_count = total_count
-                existing_result.result_created_at = datetime.utcnow()
-
-            else:
-                result_instance = Result(
-                    result_user_id=user_id,
-                    result_company_id=quiz.company_id,
-                    result_quiz_id=quiz_id,
-                    result_created_at=datetime.utcnow(),
-                    result_right_count=right_count,
-                    result_total_count=total_count,
-                )
-                self.session.add(result_instance)
+            result_instance = Result(
+                result_user_id=user_id,
+                result_company_id=quiz.company_id,
+                result_quiz_id=quiz_id,
+                result_created_at=datetime.utcnow(),
+                result_right_count=right_count,
+                result_total_count=total_count,
+            )
+            self.session.add(result_instance)
 
             await self.session.commit()
             return feedback
