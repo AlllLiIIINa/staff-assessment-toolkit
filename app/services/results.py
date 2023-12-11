@@ -6,7 +6,7 @@ from redis import asyncio
 from sqlalchemy import select, func, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
-from app.db.models import Result
+from app.db.models import Result, Quiz
 from app.depends.exceptions import ErrorGetRedisData, InvalidExportFormat, ErrorExport, NotOwnerOrAdminOrSelf, \
     ErrorUserScoreCompany, NotSelf, ErrorUserScoreCompanies, ErrorUsersScoreCompanies
 from app.services.quizzes import check_company_owner_or_admin, QuizService
@@ -242,3 +242,43 @@ class ResultService:
         except Exception as e:
             logging.error(f"Error retrieving average scores for all users: {e}")
             raise ErrorUsersScoreCompanies(e)
+
+    async def quiz_results_for_users(self, quiz_id: str, user_id: str, export_format: str) -> str:
+        try:
+            company_id = await self.session.scalar(select(Quiz.company_id).filter(Quiz.quiz_id == quiz_id))
+            await check_company_owner_or_admin(self.session, user_id, company_id)
+            query = await self.session.execute(
+                select(
+                    self.model.result_user_id,
+                    func.avg(self.model.result_right_count / self.model.result_total_count).label('average_score')
+                )
+                .filter(self.model.result_quiz_id == quiz_id)
+                .group_by(self.model.result_user_id)
+            )
+            formatted_scores = {}
+
+            for user in query.all():
+                user_id = user.result_user_id
+                if user_id not in formatted_scores:
+                    formatted_scores[user_id] = {
+                        'question_ids': [],
+                        'average_score': user.average_score
+                    }
+                formatted_scores[user_id]['question_ids'].extend(
+                    await self.quiz_service.get_question_ids_for_quiz(quiz_id))
+
+            result_str = ""
+
+            for user_id, user_data in formatted_scores.items():
+                for question_id in user_data['question_ids']:
+                    if export_format:
+                        filename = f"quiz_results.{export_format.lower()}"
+                        await export_redis_data(user_id, quiz_id, question_id, export_format, filename)
+
+                user_str = f"{user_id}: {user_data['average_score']:.2f}, "
+                result_str += user_str
+
+            return f"Average scores for quiz with ID {quiz_id}: {result_str.rstrip(', ')}"
+
+        except Exception as e:
+            logging.error(f"Error retrieving quiz results for all users: {e}")

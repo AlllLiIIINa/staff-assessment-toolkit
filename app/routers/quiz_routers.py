@@ -109,6 +109,12 @@ async def company_rating(company_id: str, export_format: str = None,
     return await result_service.company_results(company_id, export_format, user.user_id)
 
 
+@quiz_router.get("/result/rating/{quiz_id}", operation_id="quiz_results_for_users")
+async def quiz_results_for_users(quiz_id: str, export_format: str = None,
+                                 user: User = Depends(AuthService.get_current_user),
+                                 result_service: ResultService = Depends(get_result_service)):
+    return await result_service.quiz_results_for_users(quiz_id, user.user_id, export_format)
+
 @quiz_router.get("/result/rating", operation_id="user_quiz_rating")
 async def user_rating(result_service: ResultService = Depends(get_result_service)):
     return await result_service.all_users_results()
