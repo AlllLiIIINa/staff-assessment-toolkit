@@ -13,8 +13,8 @@ company_router = APIRouter(prefix="/companies", tags=["companies"])
 @company_router.get("/", operation_id="companies", )
 async def company_list(page: int = Query(default=1, description="Page number", ge=1),
                        companies_per_page: int = Query(default=10, description="Items per page", le=100),
-                       company_repo: CompanyService = Depends(get_company_service)):
-    return await company_repo.get_all(page, companies_per_page)
+                       company_service: CompanyService = Depends(get_company_service)):
+    return await company_service.get_all(page, companies_per_page)
 
 
 @company_router.post("/", status_code=HTTPStatus.CREATED, operation_id="company_create")
