@@ -8,10 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.models import Result, Quiz
 from app.depends.exceptions import ErrorGetRedisData, InvalidExportFormat, ErrorExport, NotOwnerOrAdminOrSelf, \
-    NotSelf, ErrorUserScoreCompanies, ErrorUsersScoreCompanies, \
-    ErrorCompanyAverageScoresOverTime, ErrorCompanyLastAttemptTimes
-    ErrorUserResultCompany, NotSelf, ErrorUserResultCompanies, ErrorCompaniesResults, ErrorUsersResults, \
-    ErrorQuizResults
+    NotSelf, ErrorUserResultCompany, ErrorUserResultCompanies, ErrorCompaniesResults, ErrorUsersResults, \
+    ErrorQuizResults, ErrorCompanyAverageScoresOverTime, ErrorCompanyLastAttemptTimes, ErrorUserCompletedQuizzes, \
+    ErrorUserResultsQuizzesOverTimes
 from app.services.quizzes import check_company_owner_or_admin, QuizService
 
 
@@ -293,7 +292,7 @@ class ResultService:
             logging.error(f"Error retrieving quiz results for all users: {e}")
             raise ErrorQuizResults(e)
 
-    async def user_average_scores_all_quizzes_over_times(self, user_id: str) -> str:
+    async def user_results_quizzes_over_times(self, user_id: str) -> str:
         try:
             result = await self.session.execute(
                 select(
@@ -333,8 +332,8 @@ class ResultService:
             return result_str.rstrip('')
 
         except Exception as e:
-            logging.error(f"Error retrieving average scores for user in all companies with over time: {e}")
-            raise ErrorUsersScoreCompanies(e)
+            logging.error(f"Error retrieving average scores for user for all quizzes with over time: {e}")
+            raise ErrorUserResultsQuizzesOverTimes(e)
 
     async def user_completed_quizzes(self, user_id: str, user: str) -> dict:
         try:
@@ -361,7 +360,7 @@ class ResultService:
 
         except Exception as e:
             logging.error(f"Error retrieving completed quizzes for user: {e}")
-            raise ErrorUsersScoreCompanies(e)
+            raise ErrorUserCompletedQuizzes(e)
 
     async def company_average_scores_over_times(self, company_id: str, user: str, user_id: str = None) -> dict:
         try:
