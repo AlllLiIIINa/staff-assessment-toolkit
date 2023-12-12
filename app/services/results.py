@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.models import Result, Quiz
 from app.depends.exceptions import ErrorGetRedisData, InvalidExportFormat, ErrorExport, NotOwnerOrAdminOrSelf, \
-    ErrorUserScoreCompany, NotSelf, ErrorUserScoreCompanies, ErrorUsersScoreCompanies
+    ErrorUserResultCompany, NotSelf, ErrorUserResultCompanies, ErrorCompaniesResults, ErrorUsersResults, \
+    ErrorQuizResults
 from app.services.quizzes import check_company_owner_or_admin, QuizService
 
 
@@ -116,7 +117,7 @@ class ResultService:
 
         except Exception as e:
             logging.error(f"Error retrieving average scores for user in company with ID {company_id}: {e}")
-            raise ErrorUserScoreCompany(company_id, e)
+            raise ErrorUserResultCompany(company_id, e)
 
     async def user_result_companies(self, user_id: str, export_format: str, user: str) -> str:
         try:
@@ -165,7 +166,7 @@ class ResultService:
 
         except Exception as e:
             logging.error(f"Error retrieving average scores for user in companies: {e}")
-            raise ErrorUserScoreCompanies(e)
+            raise ErrorUserResultCompanies(e)
 
     async def company_results(self, company_id: str, export_format: str, user_id: str) -> str:
         try:
@@ -213,7 +214,7 @@ class ResultService:
 
         except Exception as e:
             logging.error(f"Error retrieving results for all users: {e}")
-            raise ErrorUserScoreCompanies(e)
+            raise ErrorCompaniesResults(e)
 
     async def all_users_results(self) -> str:
         try:
@@ -241,7 +242,7 @@ class ResultService:
 
         except Exception as e:
             logging.error(f"Error retrieving average scores for all users: {e}")
-            raise ErrorUsersScoreCompanies(e)
+            raise ErrorUsersResults(e)
 
     async def quiz_results_for_users(self, quiz_id: str, user_id: str, export_format: str) -> str:
         try:
@@ -282,3 +283,4 @@ class ResultService:
 
         except Exception as e:
             logging.error(f"Error retrieving quiz results for all users: {e}")
+            raise ErrorQuizResults(e)
