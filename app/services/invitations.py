@@ -1,4 +1,6 @@
 import logging
+from typing import List, Sequence
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import CompanyInvitations, User, CompanyMembers
@@ -17,7 +19,7 @@ class InvitationService:
         self.session = session
         self.company_service = CompanyService(self.session)
 
-    async def create(self, user_id: str, invitation_data: CompanyInvitationCreate):
+    async def create(self, user_id: str, invitation_data: CompanyInvitationCreate) -> str:
         try:
             if invitation_data.recipient_id == user_id:
                 raise InviteToOwnCompany
@@ -58,7 +60,7 @@ class InvitationService:
             logging.error(f"Error creating invitation: {e}")
             raise ErrorCreatingInvitation(e)
 
-    async def handle(self, user_id: str, invitation_id: str, action: str):
+    async def handle(self, user_id: str, invitation_id: str, action: str) -> str:
         try:
             existing_invitation = await self.session.scalars(select(self.model).filter(
                 self.model.invitation_id == invitation_id
@@ -91,7 +93,8 @@ class InvitationService:
             logging.error(f"Error during handle the invitation for company: {e}")
             raise ErrorHandleInvitation(e)
 
-    async def invited_users(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10):
+    async def invited_users(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10) \
+            -> List[CompanyInvitations]:
         try:
             company = await self.company_service.get_by_id(company_id, user_id)
 
@@ -112,7 +115,8 @@ class InvitationService:
             logging.error(f"Error getting invited users for company with ID {company_id}: {e}")
             raise ErrorRetrievingInvited(e)
 
-    async def membership_requests(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10):
+    async def membership_requests(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10) \
+            -> Sequence[CompanyInvitations]:
         try:
             company = await self.company_service.get_by_id(company_id, user_id)
 
@@ -125,14 +129,14 @@ class InvitationService:
                 (self.model.recipient_id == user_id) &
                 (self.model.sender_id != user_id)).offset(offset).limit(items_per_page))
             membership_requests = result.all()
-
             return membership_requests
 
         except Exception as e:
             logging.error(f"Error getting membership requests for company with ID {company_id}: {e}")
             raise ErrorRetrievingMembershipCompany(e)
 
-    async def user_requests(self, user_id: str, page: int = 1, items_per_page: int = 10):
+    async def user_requests(self, user_id: str, page: int = 1, items_per_page: int = 10) \
+            -> Sequence[CompanyInvitations]:
         try:
             offset = (page - 1) * items_per_page
             result = await self.session.scalars(select(self.model).filter(
@@ -144,7 +148,8 @@ class InvitationService:
             logging.error(f"Error getting membership requests for user with ID {user_id}: {e}")
             raise ErrorRetrievingMembershipUser(e)
 
-    async def user_invitations(self, user_id: str, page: int = 1, items_per_page: int = 10):
+    async def user_invitations(self, user_id: str, page: int = 1, items_per_page: int = 10) \
+            -> Sequence[CompanyInvitations]:
         try:
             offset = (page - 1) * items_per_page
             result = await self.session.scalars(select(self.model).filter(
