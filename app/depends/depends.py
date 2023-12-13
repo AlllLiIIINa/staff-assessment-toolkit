@@ -4,6 +4,7 @@ from app.db.db import get_db
 from app.services.auth import AuthService
 from app.services.companies import CompanyService
 from app.services.invitations import InvitationService
+from app.services.notifications import NotificationService
 from app.services.questions import QuestionService
 from app.services.quizzes import QuizService
 from app.services.results import ResultService
@@ -36,3 +37,7 @@ async def get_question_service(session: AsyncSession = Depends(get_db)) -> Quest
 
 async def get_result_service(session: AsyncSession = Depends(get_db)) -> ResultService:
     return ResultService(session)
+
+
+async def get_notification_service(session: AsyncSession = Depends(get_db)) -> NotificationService:
+    return NotificationService(session)
