@@ -448,3 +448,23 @@ class ErrorGetRedisData(CustomException):
 class ErrorExport(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(detail=f"Error exporting data: {e}", **kwargs)
+
+
+class ErrorCompanyAverageScoresOverTime(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error retrieving data with company average scores over time: {e}", **kwargs)
+
+
+class ErrorCompanyLastAttemptTimes(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error retrieving last attempt times for company: {e}", **kwargs)
+
+
+class ErrorUserResultsQuizzesOverTimes(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error retrieving average scores for user for all quizzes with over time: {e}", **kwargs)
+
+
+class ErrorUserCompletedQuizzes(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error retrieving completed quizzes for user: {e}", **kwargs)

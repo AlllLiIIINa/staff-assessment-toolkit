@@ -89,17 +89,16 @@ async def quiz_pass(quiz_id: str, quiz_data: QuizPass, user: User = Depends(Auth
 
 
 @quiz_router.get("/result/company", operation_id="user_quiz_result_company")
-async def user_score_company(company_id: str, user_id: str, export_format: str = None,
-                             user: User = Depends(AuthService.get_current_user),
-                             result_service: ResultService = Depends(get_result_service)):
+async def user_result_company(company_id: str, user_id: str, export_format: str = None,
+                              user: User = Depends(AuthService.get_current_user),
+                              result_service: ResultService = Depends(get_result_service)):
     return await result_service.user_result_company(company_id, user_id, export_format, user.user_id)
 
 
 @quiz_router.get("/result/companies", operation_id="user_quiz_result_companies")
-async def user_score_companies(user_id: str, export_format: str = None,
-                               user: User = Depends(AuthService.get_current_user),
-                               result_service: ResultService = Depends(get_result_service)):
-    return await result_service.user_result_companies(user_id, export_format, user.user_id)
+async def user_result_companies(user_id: str, export_format: str = None,
+                                result_service: ResultService = Depends(get_result_service)):
+    return await result_service.user_result_companies(user_id, export_format)
 
 
 @quiz_router.get("/result/rating/company", operation_id="company_rating")
@@ -120,6 +119,30 @@ async def user_rating(result_service: ResultService = Depends(get_result_service
     return await result_service.all_users_results()
 
 
+@quiz_router.get("/{user_id}/completed", operation_id="user_quizzes_completed")
+async def user_completed_quizzes(user_id: str, user: User = Depends(AuthService.get_current_user),
+                                 result_service: ResultService = Depends(get_result_service)):
+    return await result_service.user_completed_quizzes(user_id, user.user_id)
+
+
+@quiz_router.get("/result/quizzes", operation_id="user_scores_all_quizzes_over_times")
+async def user_scores_all_quizzes_over_times(user_id: str, result_service: ResultService = Depends(get_result_service)):
+    return await result_service.user_average_scores_all_quizzes_over_times(user_id)
+
+
 @quiz_router.get("/result/redis", operation_id="user_quiz_redis_data")
-async def get_redis_data_(quiz_id: str, user_id: str, question_id: str):
+async def get_redis_data(quiz_id: str, user_id: str, question_id: str):
     return await get_redis_data(quiz_id, user_id, question_id)
+
+
+@quiz_router.get("/result/{company_id}/overtime", operation_id="company_average_scores_over_times")
+async def company_average_scores_over_times(company_id: str, user_id: str = None,
+                                            user: User = Depends(AuthService.get_current_user),
+                                            result_service: ResultService = Depends(get_result_service)):
+    return await result_service.company_average_scores_over_times(company_id, user.user_id, user_id)
+
+
+@quiz_router.get("/{company_id}/latest", operation_id="company_last_attempt_times")
+async def company_last_attempt_times(company_id: str, user: User = Depends(AuthService.get_current_user),
+                                     result_service: ResultService = Depends(get_result_service)):
+    return await result_service.company_last_attempt_times(company_id, user.user_id)
