@@ -1,16 +1,16 @@
 import json
+import json
 import logging
 from datetime import datetime, timedelta
 from typing import List, Union
 from redis import asyncio
-from sqlalchemy import update, select, func, desc, text
+from sqlalchemy import update, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.db.models import Quiz, CompanyMembers, Question, Result
 from app.depends.exceptions import ErrorRetrievingList, AlreadyExistsQuiz, NotOwnerOrAdmin, ErrorCreatingQuiz, \
     QuizNotFound, ErrorRetrievingQuiz, NotMember, ErrorUpdatingQuiz, ErrorDeletingQuiz, ErrorPassQuiz, EmptyAnswer, \
-    LessThen2Questions, QuizNotAvailable, NotOwnerOrAdminOrSelf, NotSelf, ErrorUserScoreCompany, \
-    ErrorUserScoreCompanies, ErrorUsersScoreCompanies, ErrorGetRedisData
+    LessThen2Questions, QuizNotAvailable
 from app.schemas.quiz import QuizBase, QuizUpdate, QuizPass
 
 
@@ -25,25 +25,6 @@ async def check_company_owner_or_admin(session: AsyncSession, user_id: str, comp
         raise NotOwnerOrAdmin
 
     return True
-
-
-async def get_redis_data(quiz_id: str, user_id: str, question_id: str):
-    try:
-        redis_client = await asyncio.from_url(Settings.REDIS_URL)
-        redis_key = f"quiz_pass:{quiz_id}:{user_id}:question_{question_id}"
-        redis_data_str = await redis_client.get(redis_key)
-
-        if redis_data_str is not None:
-            redis_data = json.loads(redis_data_str)
-            await redis_client.close()
-            return redis_data
-
-        else:
-            raise ErrorGetRedisData(e="Redis data not found.")
-
-    except Exception as e:
-        logging.error(f"Error retrieving redis data: {e}")
-        raise ErrorGetRedisData(e)
 
 
 class QuizService:
@@ -238,73 +219,7 @@ class QuizService:
             logging.error(f"Error passing quiz with ID {quiz_id}: {e}")
             raise ErrorPassQuiz(e)
 
-    async def user_score_company(self, company_id: str, user_id: str, user: str) -> str:
-        try:
-            if str(user) != user_id or await check_company_owner_or_admin(self.session, str(user), company_id) != True:
-                logging.error("You are not the owner or admin of this company")
-                raise NotOwnerOrAdminOrSelf
-
-            query = await self.session.scalars(
-                select(func.avg(Result.result_right_count / Result.result_total_count)
-                       .label('average_score'))
-                .filter(Result.result_user_id == user_id, Result.result_company_id == company_id)
-                .group_by(Result.result_quiz_id)
-            )
-            average_scores = query.all()
-            result = round(sum(average_scores) / len(average_scores), 2) if average_scores else None
-            return f"Your score in company with ID {company_id}: {result}"
-
-        except Exception as e:
-            logging.error(f"Error retrieving average scores for user in company with ID {company_id}: {e}")
-            raise ErrorUserScoreCompany(company_id, e)
-
-    async def user_score_companies(self, user_id: str, user: str) -> str:
-        try:
-            if str(user) != user_id:
-                logging.error("You are not the owner or admin of this company")
-                raise NotSelf
-
-            query = await self.session.scalars(
-                select(func.avg(Result.result_right_count / Result.result_total_count)
-                       .label('average_score'))
-                .filter(Result.result_user_id == user_id)
-                .group_by(Result.result_company_id)
-            )
-            average_scores = query.all()
-            result = round(sum(average_scores) / len(average_scores), 2) if average_scores else None
-            return f"Your average score across all companies: {result}"
-
-        except Exception as e:
-            logging.error(f"Error retrieving average scores for user in companies: {e}")
-            raise ErrorUserScoreCompanies(e)
-
-    async def score_all_users(self) -> str:
-        try:
-            result = await self.session.execute(
-                select(
-                    Result.result_user_id,
-                    func.sum(Result.result_right_count).label('total_right_count'),
-                    func.sum(Result.result_total_count).label('total_question_count'),
-                    func.avg(Result.result_right_count / Result.result_total_count).label('average_score')
-                )
-                .group_by(Result.result_user_id)
-                .order_by(desc(text('average_score')))
-            )
-            user_scores = result.all()
-            formatted_scores = []
-
-            for user in user_scores:
-                total_right_count = user.total_right_count or 0
-                total_question_count = user.total_question_count or 0
-
-                average_score = round(total_right_count / total_question_count, 2) if total_question_count > 0 else 0
-                formatted_scores.append(f"{user.result_user_id}: {average_score}")
-
-            result_str = ", ".join(formatted_scores) if formatted_scores else None
-            return f"Average scores for all users: {result_str}"
-
-        except Exception as e:
-            logging.error(f"Error retrieving average scores for all users: {e}")
-            raise ErrorUsersScoreCompanies(e)
-
-
+    async def get_question_ids_for_quiz(self, quiz_id):
+        result = await self.session.scalars(select(Question.question_id).filter(Question.quiz_id == quiz_id))
+        question_ids = [question_id for question_id in result.all()]
+        return question_ids

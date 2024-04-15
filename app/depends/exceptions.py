@@ -284,6 +284,11 @@ class InvalidAction(Invalid):
         super().__init__(object_type="Action", details="use 'accept' or 'reject")
 
 
+class InvalidExportFormat(Invalid):
+    def __init__(self):
+        super().__init__(object_type="Export Format", details="supported formats: JSON, CSV.")
+
+
 class ErrorSettingRole(CustomException):
     def __init__(self, **kwargs):
         super().__init__(detail="Error setting {object_type} role for User: {e}", **kwargs)
@@ -409,22 +414,37 @@ class QuizNotAvailable(CustomException):
         super().__init__(detail="Quiz is not available", **kwargs)
 
 
-class ErrorUserScoreCompany(CustomException):
+class ErrorUserResultCompany(CustomException):
     def __init__(self, company_id, e, **kwargs):
         super().__init__(detail=f"fError retrieving average scores for user in company with ID "
                                 f"{company_id}: {e}", **kwargs)
 
 
-class ErrorUserScoreCompanies(CustomException):
+class ErrorUserResultCompanies(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(detail=f"Error retrieving average scores for user in companies: {e}",**kwargs)
 
 
-class ErrorUsersScoreCompanies(CustomException):
+class ErrorCompaniesResults(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(detail=f"Error retrieving average scores for all users in companies: {e}", **kwargs)
+
+
+class ErrorUsersResults(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error retrieving average scores for all users: {e}", **kwargs)
+
+
+class ErrorQuizResults(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error retrieving quiz results for all users: {e}", **kwargs)
 
 
 class ErrorGetRedisData(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(detail=f"Error retrieving redis data: {e}", **kwargs)
+
+
+class ErrorExport(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error exporting data: {e}", **kwargs)
