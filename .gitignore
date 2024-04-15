@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
 # C extensions
 *.so
 
@@ -24,6 +25,7 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+.idea/
 MANIFEST
 
 # PyInstaller
@@ -50,6 +52,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+*.ruff_cache
+*.mypy_cache
 
 # Translations
 *.mo

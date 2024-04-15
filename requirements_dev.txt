@@ -1,0 +1,8 @@
+-r requirements.txt
+pytest==7.4.2
+ruff==0.0.290
+mypy==1.5.1
+pytest-asyncio==0.21.1
+typer==0.9.0
+trio==0.8.0
+twisted==23.8.0
