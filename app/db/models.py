@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, DateTime, String, Boolean, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, DateTime, String, Boolean, UUID, ForeignKey, Integer, ARRAY
 from sqlalchemy.orm import relationship
 from app.db.db import Base
 
@@ -28,7 +27,6 @@ class CompanyInvitations(Base):
 
 class User(Base):
     __tablename__: str = "users"
-    __bind_key__ = "internship_db"
 
     user_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     user_email = Column(String, unique=True, index=True, nullable=False)
@@ -61,7 +59,6 @@ class User(Base):
 
 class Company(Base):
     __tablename__: str = "companies"
-    __bind_key__ = "internship_db"
 
     company_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     company_name = Column(String, default=None, unique=True)
@@ -78,6 +75,7 @@ class Company(Base):
     owner = relationship("User", back_populates="companies")
     members = relationship("User", secondary="company_members", back_populates="member")
     invitations = relationship("User", secondary="company_invitations", back_populates="sent_invitations")
+    quiz = relationship("Quiz", back_populates="company")
 
     def __repr__(self):
         return (
@@ -87,5 +85,59 @@ class Company(Base):
             f"company_title={self.company_title}, "
             f"company_description={self.company_description}, "
             f"company_is_visible={self.company_is_visible}, "
+            f")>"
+        )
+
+
+class Quiz(Base):
+    __tablename__: str = "quizzes"
+
+    quiz_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
+    quiz_name = Column(String, default=None)
+    quiz_title = Column(String, default=None)
+    quiz_description = Column(String, default=None)
+    quiz_frequency = Column(DateTime, default=None)
+    company_id = Column(UUID(as_uuid=True), ForeignKey('companies.company_id'))
+    company = relationship("Company", back_populates="quiz")
+    question = relationship("Question", back_populates="quiz", cascade="all, delete-orphan")
+    quiz_created_by = Column(UUID(as_uuid=True), default=uuid.uuid4)
+    quiz_updated_by = Column(UUID(as_uuid=True), default=None)
+    quiz_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
+    quiz_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return (
+            f"<{self.__class__.__name__}("
+            f"quiz_id={self.quiz_id}, "
+            f"quiz_name={self.quiz_name}, "
+            f"quiz_title={self.quiz_title}, "
+            f"quiz_description={self.quiz_description}, "
+            f"quiz_frequency={self.quiz_frequency}, "
+            f")>"
+        )
+
+
+class Question(Base):
+    __tablename__: str = "questions"
+
+    question_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
+    question_text = Column(String, default=None)
+    question_answers = Column(ARRAY(String), default=None)
+    question_correct_answer = Column(ARRAY(String), default=None)
+    quiz_id = Column(UUID(as_uuid=True), ForeignKey('quizzes.quiz_id'))
+    quiz = relationship("Quiz", back_populates="question")
+    question_company_id = Column(UUID(as_uuid=True), ForeignKey('companies.company_id'))
+    question_created_by = Column(UUID(as_uuid=True), default=uuid.uuid4)
+    question_updated_by = Column(UUID(as_uuid=True), default=None)
+    question_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
+    question_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return (
+            f"<{self.__class__.__name__}("
+            f"question_id={self.question_id}, "
+            f"question_text={self.question_text}, "
+            f"question_answers={self.question_answers}, "
+            f"question_correct_answer={self.question_correct_answer}, "
             f")>"
         )

@@ -1,6 +1,8 @@
 import logging
 import secrets
 import string
+from typing import List, Optional
+
 import bcrypt
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +19,7 @@ class UserService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_all(self, page: int = 1, items_per_page: int = 10):
+    async def get_all(self, page: int = 1, items_per_page: int = 10) -> List[UserBase]:
         try:
             offset = (page - 1) * items_per_page
             query = await self.session.scalars(select(self.model).offset(offset).limit(items_per_page))
@@ -28,7 +30,7 @@ class UserService:
             logging.error(f"Error retrieving entity list: {e}")
             raise ErrorRetrievingList(e)
 
-    async def get_by_id(self, user_id: str):
+    async def get_by_id(self, user_id: str) -> User:
         try:
             result = await self.session.scalars(select(self.model).filter(self.model.user_id == user_id))
             user = result.first()
@@ -43,7 +45,7 @@ class UserService:
             logging.error(f"Error retrieving user with ID {user_id}: {e}")
             raise ErrorRetrievingUser(e)
 
-    async def get_by_email(self, user_email: str):
+    async def get_by_email(self, user_email: str) -> Optional[User]:
         try:
             result = await self.session.scalars(select(User).filter(User.user_email == user_email))
             user = result.first()
@@ -54,7 +56,7 @@ class UserService:
             logging.error(f"Error retrieving user with email {user_email}: {e}")
             raise ErrorRetrievingUser(e)
 
-    async def create(self, user_data: UserBase):
+    async def create(self, user_data: UserBase) -> User:
         try:
             result = await self.session.scalars(select(self.model).filter
                                                 (self.model.user_email == user_data.user_email))
@@ -81,7 +83,7 @@ class UserService:
             logging.error(f"Error creating user: {e}")
             raise ErrorCreatingUser(e)
 
-    async def update(self, user_id: str, user_data: UserUpdate):
+    async def update(self, user_id: str, user_data: UserUpdate) -> User:
         try:
             user = await self.get_by_id(user_id)
 
@@ -101,7 +103,7 @@ class UserService:
             logging.error(f"Error during user update for user ID: {user_id}: {e}")
             raise ErrorUpdatingUser(e)
 
-    async def delete(self, user_id: str):
+    async def delete(self, user_id: str) -> User:
         try:
             user = await self.get_by_id(user_id)
             await self.session.delete(user)
