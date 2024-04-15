@@ -1,9 +1,10 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, Query
 from app.db.models import User
-from app.depends.depends import get_quiz_service, get_question_service, get_result_service
+from app.depends.depends import get_quiz_service, get_question_service, get_result_service, get_notification_service
 from app.schemas.quiz import QuizBase, QuizUpdate, QuestionUpdate, QuestionBase, QuizPass
 from app.services.auth import AuthService
+from app.services.notifications import NotificationService
 from app.services.questions import QuestionService
 from app.services.quizzes import QuizService
 from app.services.results import ResultService, get_redis_data
@@ -114,6 +115,7 @@ async def quiz_results_for_users(quiz_id: str, export_format: str = None,
                                  result_service: ResultService = Depends(get_result_service)):
     return await result_service.quiz_results_for_users(quiz_id, user.user_id, export_format)
 
+
 @quiz_router.get("/result/rating", operation_id="user_quiz_rating")
 async def user_rating(result_service: ResultService = Depends(get_result_service)):
     return await result_service.all_users_results()
@@ -146,3 +148,16 @@ async def company_average_scores_over_times(company_id: str, user_id: str = None
 async def company_last_attempt_times(company_id: str, user: User = Depends(AuthService.get_current_user),
                                      result_service: ResultService = Depends(get_result_service)):
     return await result_service.company_last_attempt_times(company_id, user.user_id)
+
+
+@quiz_router.get("/{user_id}/notifications", operation_id="get_user_notifications")
+async def get_user_notifications(user: User = Depends(AuthService.get_current_user),
+                                 notification_service: NotificationService = Depends(get_notification_service)):
+    return await notification_service.get_user_notifications(user.user_id)
+
+
+@quiz_router.get("/{user_id}/notification/handle", operation_id="handle_user_notifications")
+async def handle_user_notifications(notification_id: str, action: bool,
+                                    user: User = Depends(AuthService.get_current_user),
+                                    notification_service: NotificationService = Depends(get_notification_service)):
+    return await notification_service.handle_notifications(notification_id, action, user.user_id)

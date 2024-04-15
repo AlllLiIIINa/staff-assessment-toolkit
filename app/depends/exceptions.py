@@ -49,6 +49,11 @@ class QuestionNotFound(ObjectNotFound):
         super().__init__(object_type="Question", object_id=quiz_id)
 
 
+class NotificationNotFound(ObjectNotFound):
+    def __init__(self, quiz_id: str):
+        super().__init__(object_type="Notifications", object_id=quiz_id)
+
+
 class ErrorRetrieving(CustomException):
     def __init__(self, **kwargs):
         super().__init__(detail="Error retrieving {object_type}: {e}", **kwargs)
@@ -468,3 +473,18 @@ class ErrorUserResultsQuizzesOverTimes(CustomException):
 class ErrorUserCompletedQuizzes(CustomException):
     def __init__(self, e, **kwargs):
         super().__init__(detail=f"Error retrieving completed quizzes for user: {e}", **kwargs)
+
+
+class ErrorCreatingNotification(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error creating quiz notifications: {e}", **kwargs)
+
+
+class ErrorGetUserNotifications(CustomException):
+    def __init__(self, e, **kwargs):
+        super().__init__(detail=f"Error getting user notifications: {e}", **kwargs)
+
+
+class ErrorHandleUserNotification(CustomException):
+    def __init__(self, notification_id, e, **kwargs):
+        super().__init__(detail=f"Error handling user notification with ID {notification_id}: {e}", **kwargs)

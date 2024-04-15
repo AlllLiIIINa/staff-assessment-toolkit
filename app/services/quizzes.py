@@ -1,5 +1,4 @@
 import json
-import json
 import logging
 from datetime import datetime, timedelta
 from typing import List, Union
@@ -12,6 +11,7 @@ from app.depends.exceptions import ErrorRetrievingList, AlreadyExistsQuiz, NotOw
     QuizNotFound, ErrorRetrievingQuiz, NotMember, ErrorUpdatingQuiz, ErrorDeletingQuiz, ErrorPassQuiz, EmptyAnswer, \
     LessThen2Questions, QuizNotAvailable
 from app.schemas.quiz import QuizBase, QuizUpdate, QuizPass
+from app.services.notifications import NotificationService
 
 
 async def check_company_owner_or_admin(session: AsyncSession, user_id: str, company_id: str):
@@ -32,6 +32,7 @@ class QuizService:
 
     def __init__(self, session: AsyncSession):
         self.session = session
+        self.notification_service = NotificationService(self.session)
 
     async def get_all(self, company_id: str, user_id: str, page: int = 1, items_per_page: int = 10) -> List[QuizBase]:
         try:
@@ -82,6 +83,13 @@ class QuizService:
             quiz_company_id = await self.session.scalar(
                 select(Quiz.company_id).filter(Quiz.quiz_id == quiz_data.quiz_id))
             await check_company_owner_or_admin(self.session, user_id, quiz_company_id)
+            result = await self.session.scalars(select(CompanyMembers.user_id)
+                                                .filter(CompanyMembers.company_id == quiz_data.company_id))
+            user_ids = [str(result.first())]
+            logging.info(user_ids)
+            await self.notification_service.create_quiz_notification(user_ids, str(quiz_data.company_id),
+                                                                     quiz_data.quiz_name)
+            logging.info("Creating quiz notification processed successfully")
             quiz_data.quiz_created_by = user_id
             new_quiz = self.model(**quiz_data.model_dump())
             self.session.add(new_quiz)

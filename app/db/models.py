@@ -25,6 +25,17 @@ class CompanyInvitations(Base):
                                    nullable=False)
 
 
+class Notification(Base):
+    __tablename__: str = "company_notifications"
+
+    notification_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), primary_key=True)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.company_id"), primary_key=True)
+    notification_status = Column(Boolean, default=None)
+    notification_text = Column(String, default=None)
+    notification_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
+
+
 class User(Base):
     __tablename__: str = "users"
 
@@ -46,6 +57,7 @@ class User(Base):
     member = relationship("Company", secondary="company_members", back_populates="members")
     sent_invitations = relationship("Company", secondary="company_invitations", back_populates="invitations")
     results = relationship("Result", back_populates="result_user")
+    notification = relationship("Company", secondary="company_notifications", back_populates="notifications")
 
     def __repr__(self):
         return (
@@ -78,6 +90,7 @@ class Company(Base):
     invitations = relationship("User", secondary="company_invitations", back_populates="sent_invitations")
     quiz = relationship("Quiz", back_populates="company")
     results = relationship("Result", back_populates="result_company")
+    notifications = relationship("User", secondary="company_notifications", back_populates="notification")
 
     def __repr__(self):
         return (
