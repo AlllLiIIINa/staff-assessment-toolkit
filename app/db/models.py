@@ -6,7 +6,7 @@ from app.db.db import Base
 
 
 class CompanyMembers(Base):
-    __tablename__ = "company_members"
+    __tablename__: str = "company_members"
 
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.company_id"), primary_key=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), primary_key=True)
@@ -14,7 +14,7 @@ class CompanyMembers(Base):
 
 
 class CompanyInvitations(Base):
-    __tablename__ = "company_invitations"
+    __tablename__: str = "company_invitations"
 
     invitation_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
     sender_id = Column(UUID(as_uuid=True), ForeignKey("users.user_id"), nullable=False)
@@ -45,6 +45,7 @@ class User(Base):
     companies = relationship("Company", back_populates="owner")
     member = relationship("Company", secondary="company_members", back_populates="members")
     sent_invitations = relationship("Company", secondary="company_invitations", back_populates="invitations")
+    results = relationship("Result", back_populates="result_user")
 
     def __repr__(self):
         return (
@@ -76,6 +77,7 @@ class Company(Base):
     members = relationship("User", secondary="company_members", back_populates="member")
     invitations = relationship("User", secondary="company_invitations", back_populates="sent_invitations")
     quiz = relationship("Quiz", back_populates="company")
+    results = relationship("Result", back_populates="result_company")
 
     def __repr__(self):
         return (
@@ -104,6 +106,7 @@ class Quiz(Base):
     quiz_updated_by = Column(UUID(as_uuid=True), default=None)
     quiz_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
     quiz_updated_at = Column(DateTime, index=True, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    results = relationship("Result", back_populates="result_quiz")
 
     def __repr__(self):
         return (
@@ -141,3 +144,18 @@ class Question(Base):
             f"question_correct_answer={self.question_correct_answer}, "
             f")>"
         )
+
+
+class Result(Base):
+    __tablename__: str = "results"
+
+    result_id = Column(UUID(as_uuid=True), primary_key=True, index=True, unique=True, default=uuid.uuid4)
+    result_user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id'), default=uuid.uuid4)
+    result_user = relationship("User", back_populates="results")
+    result_company_id = Column(UUID(as_uuid=True), ForeignKey('companies.company_id'), default=uuid.uuid4)
+    result_company = relationship("Company", back_populates="results")
+    result_quiz_id = Column(UUID(as_uuid=True), ForeignKey('quizzes.quiz_id'), default=uuid.uuid4)
+    result_quiz = relationship("Quiz", back_populates="results")
+    result_created_at = Column(DateTime, index=True, default=datetime.utcnow, nullable=False)
+    result_right_count = Column(Integer, default=0)
+    result_total_count = Column(Integer, default=0)

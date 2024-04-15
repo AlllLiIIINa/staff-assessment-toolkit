@@ -82,6 +82,11 @@ class AuthService:
         try:
             user_service = UserService(session)
             payload = await decode_and_verify_access_token(token)
+
+            if payload is None:
+                logging.error("Invalid token payload")
+                raise InvalidCredentials
+
             token_data = TokenPayload(**payload)
 
             try:
